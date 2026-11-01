@@ -1,0 +1,86 @@
+{
+  "camera": {
+    "name": "Webcam C110",
+    "backend": "dshow",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "mirror": true,
+    "index": 0,
+    "fourcc": ""
+  },
+  "display": {
+    "fullscreen": true,
+    "preview_height": 720,
+    "monitor": 0,
+    "second_screen": 1,
+    "second_hold": 60
+  },
+  "booth": {
+    "countdown_seconds": 5,
+    "review_seconds": 8,
+    "backgrounds_dir": "backgrounds",
+    "overlay": "",
+    "output_dir": "~/Pictures/Photobooth",
+    "save_original": true,
+    "save_matte": false,
+    "jpeg_quality": 95,
+    "instructions": "Big button: take a photo        Side button: change background",
+    "printer_problem": "ask a grown-up to check the printer",
+    "slideshow_after": 120,
+    "slideshow_seconds": 5,
+    "look_message": "Look at the camera!"
+  },
+  "keyer": {
+    "screen_color": [
+      68,
+      118,
+      66
+    ],
+    "clip_black": 0.6,
+    "clip_white": 0.47,
+    "choke": 5,
+    "softness": 1.5,
+    "clean_plate": "clean_plate.png",
+    "plate_auto_gain": true,
+    "balance": 0.86,
+    "matte_blur": 6,
+    "despill": 1,
+    "despill_balance": 0.66,
+    "luma_restore": 0.5,
+    "edge_subtract": true,
+    "light_wrap": 0.12,
+    "light_wrap_size": 15.0,
+    "garbage": [
+      0.05,
+      0.03,
+      0.08,
+      0
+    ]
+  },
+  "print": {
+    "enabled": false,
+    "printer": "",
+    "min_seconds_between": 60,
+    "max_per_hour": 100,
+    "max_per_day": 120,
+    "copies": 1,
+    "fit": "fit"
+  },
+  "remote": {
+    "enabled": true,
+    "address": ""
+  },
+  "fill": {
+    "exposure": -0.05,
+    "contrast": 0.97,
+    "gamma": 1.0,
+    "saturation": 0.48,
+    "temperature": -0.32,
+    "tint": -0.57
+  },
+  "panel": {
+    "port": 8765,
+    "pin": ""
+  }
+}

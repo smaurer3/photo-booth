@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Booth Settings</title>
+<style>
+  :root {
+    --bg: #111317; --panel: #1b1e24; --panel2: #232730; --line: #2f3440;
+    --text: #e8eaee; --dim: #9aa1ad; --accent: #4fb3ff; --good: #5fd38d; --warn: #ffb547; --bad: #ff6b6b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+           padding: 10px 16px; background: #0c0e11ee; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+  header h1 { font-size: 17px; margin: 0 6px 0 0; font-weight: 650; }
+  .pages { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .pages a { color: var(--dim); text-decoration: none; padding: 6px 12px; font-size: 14px; }
+  .pages a.on { background: var(--panel2); color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; background: var(--panel2); color: var(--dim); white-space: nowrap; }
+  .chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+  button { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+           padding: 7px 13px; cursor: pointer; touch-action: manipulation; }
+  button:hover { border-color: #46506a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 600; }
+  button.primary.dirty { box-shadow: 0 0 0 3px #4fb3ff55; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  main { display: grid; grid-template-columns: minmax(320px, 1.15fr) minmax(320px, 1fr); gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 10px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .previewcol { align-self: start; position: sticky; top: 64px; }
+  @media (max-width: 860px) { .previewcol { position: static; } }
+  .preview { position: relative; background: #000; border-radius: 8px; overflow: hidden; cursor: crosshair; }
+  .preview img { display: block; width: 100%; height: auto; min-height: 120px; }
+  .preview .hint { position: absolute; left: 8px; bottom: 8px; font-size: 12px; background: #000a; padding: 3px 8px; border-radius: 6px; color: #ddd; pointer-events: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 12px; }
+  .seg button.on { background: var(--accent); color: #04121f; font-weight: 600; }
+  .swatch { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #fff4; display: inline-block; vertical-align: middle; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tabs button { background: transparent; border: 1px solid transparent; color: var(--dim); }
+  .tabs button.on { background: var(--panel2); border-color: var(--line); color: var(--text); font-weight: 600; }
+  .tab { display: none; } .tab.on { display: block; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 18px 0 6px; font-weight: 600; }
+  h3:first-child { margin-top: 2px; }
+  .ctl { padding: 7px 0; border-bottom: 1px solid #ffffff08; }
+  .ctl .top { display: flex; justify-content: space-between; gap: 10px; }
+  .ctl .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .ctl .help { font-size: 12.5px; color: var(--dim); margin-top: 1px; }
+  input[type=range] { width: 100%; margin: 6px 0 2px; accent-color: var(--accent); height: 22px; }
+  label.check { display: flex; gap: 10px; align-items: center; padding: 8px 0; cursor: pointer; }
+  input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+  select, input[type=number], input[type=text] { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 9px; min-width: 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  .grid2 label, .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--dim); }
+  .grid2 label > *, .field > * { color: var(--text); }
+  .note { font-size: 12.5px; color: var(--dim); margin: 6px 0; }
+  .drop { border: 2px dashed var(--line); border-radius: var(--radius); padding: 18px; text-align: center; color: var(--dim); }
+  .drop.over { border-color: var(--accent); color: var(--text); }
+  .bgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .bg { background: var(--panel2); border: 2px solid transparent; border-radius: 9px; overflow: hidden; }
+  .bg.current { border-color: var(--good); }
+  .bg.dragging { opacity: .4; } .bg.target { border-color: var(--accent); }
+  .bg img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #000; cursor: grab; }
+  .bg .name { padding: 6px 8px 2px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+  .bg .tools { display: flex; gap: 4px; padding: 4px 6px 7px; }
+  .bg .tools button { padding: 3px 7px; font-size: 13px; }
+  .bg .tools .use { flex: 1; }
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #000d; color: #fff; padding: 9px 16px;
+           border-radius: 8px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 20; max-width: 90vw; }
+  #toast.show { opacity: 1; } #toast.err { background: #7a1f1f; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Photo Booth</h1>
+  <nav class="pages"><a href="/">Dashboard</a><a href="/gallery">Gallery</a><a href="/settings" class="on">Settings</a></nav>
+  <div class="chips" id="chips"></div>
+  <button id="revert" title="Undo changes since the last save">Revert</button>
+  <button id="save" class="primary">Save</button>
+</header>
+
+<main>
+  <section class="previewcol">
+    <div class="card">
+      <div class="preview" id="previewBox">
+        <img id="preview" alt="live preview">
+        <div class="hint">Tap the green screen to set its colour</div>
+      </div>
+      <div class="row">
+        <div class="seg" id="views">
+          <button data-view="comp" class="on">Result</button>
+          <button data-view="matte">Matte</button>
+          <button data-view="source">Camera</button>
+        </div>
+        <span style="flex:1"></span>
+        <span class="note">Screen</span><span class="swatch" id="swatch"></span>
+        <button id="autoScreen">Auto-pick</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <nav class="tabs" id="tabs">
+      <button data-tab="key" class="on">Key</button>
+      <button data-tab="fill">Colour</button>
+      <button data-tab="camera">Camera</button>
+      <button data-tab="bgs">Backgrounds</button>
+      <button data-tab="booth">Booth &amp; print</button>
+    </nav>
+
+    <div class="tab on" id="tab-key"><div id="keyControls"></div>
+      <h3>Clean plate (screen correction)</h3>
+      <p class="note">Evens out an unevenly lit screen. Helps when people stand well away from the screen; hurts if they cast shadows on it.
+        Capturing shows a 5 second countdown on the booth screen &mdash; everyone out of shot.</p>
+      <div class="row"><span id="plateState" class="chip"></span>
+        <button id="plateCapture">Capture clean plate</button><button id="plateClear">Clear</button></div>
+      <label class="check"><input type="checkbox" data-sec="keyer" data-key="plate_auto_gain"> Match plate brightness to each frame (cameras on auto exposure)</label>
+    </div>
+
+    <div class="tab" id="tab-fill">
+      <p class="note">Colour correction for the people only (the background picture isn't touched).</p>
+      <div id="fillControls"></div>
+      <div class="row"><button id="fillReset">Reset colour</button></div>
+    </div>
+
+    <div class="tab" id="tab-camera">
+      <div class="grid2">
+        <label style="grid-column: 1 / -1">Camera
+          <select id="camName"></select></label>
+        <label>Driver
+          <select id="camBackend"><option value="dshow">DirectShow</option><option value="msmf">Media Foundation</option></select></label>
+        <label>Resolution
+          <select id="camRes"></select></label>
+        <label>Frame rate
+          <select id="camFps"></select></label>
+        <label>Format
+          <select id="camFourcc"><option value="">Auto</option><option>MJPG</option><option>YUY2</option><option>NV12</option></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="camMirror"> Mirror like a selfie (preview and photo)</label>
+      <div class="row"><button class="primary" id="camApply">Use this camera</button>
+        <button id="camDialog" title="Opens on the booth laptop">Driver settings&hellip;</button>
+        <button id="camRefresh">Refresh list</button></div>
+      <p class="note">Lock exposure, white balance and focus on the camera itself. "Driver settings" opens the camera's own dialog on the booth laptop (DirectShow only).</p>
+      <p class="note" id="camStatus"></p>
+    </div>
+
+    <div class="tab" id="tab-bgs">
+      <div class="drop" id="drop">Drop pictures here, or <button id="pick">Add pictures&hellip;</button>
+        <input type="file" id="files" accept="image/*" multiple hidden>
+        <div class="note" id="uploadState"></div></div>
+      <p class="note">Drag to reorder (or use the arrows). Tap a name to rename. The green one is showing in the booth.</p>
+      <div class="bgs" id="bgs"></div>
+    </div>
+
+    <div class="tab" id="tab-booth">
+      <h3>Booth</h3>
+      <div class="grid2">
+        <label>Countdown (seconds)<input type="number" min="1" max="10" data-sec="booth" data-key="countdown_seconds"></label>
+        <label>Show photo for (seconds)<input type="number" min="2" max="60" data-sec="booth" data-key="review_seconds"></label>
+        <label>Slideshow after remote is idle (seconds, 0 = never)<input type="number" min="0" max="3600" data-sec="booth" data-key="slideshow_after"></label>
+        <label>Slideshow: seconds per photo<input type="number" min="2" max="60" data-sec="booth" data-key="slideshow_seconds"></label>
+        <label style="grid-column: 1 / -1">On-screen instructions<input type="text" data-sec="booth" data-key="instructions"></label>
+        <label style="grid-column: 1 / -1">Countdown message (under an arrow pointing up at the camera; empty = no arrow)
+          <input type="text" data-sec="booth" data-key="look_message" placeholder="Look at the camera!"></label>
+        <label style="grid-column: 1 / -1">Save photos to (a folder on the booth laptop)
+          <input type="text" data-sec="booth" data-key="output_dir" placeholder="~/Pictures/Photobooth"></label>
+      </div>
+      <div class="row"><button id="openFolder" title="Opens on the booth laptop">Open folder</button>
+        <span class="note" id="outDir"></span></div>
+      <p class="note">Each day gets its own folder; the print log lives here too, so a new folder per event starts the print counts fresh.</p>
+      <label class="check"><input type="checkbox" data-sec="booth" data-key="save_original"> Also save the un-keyed camera picture (for re-keying later)</label>
+      <h3>Screen</h3>
+      <label class="check"><input type="checkbox" data-sec="display" data-key="fullscreen"> Fullscreen (no title bar or taskbar)</label>
+      <div class="grid2">
+        <label>Show the booth on<select id="monitor" data-sec="display" data-key="monitor" data-num></select></label>
+        <label>Live preview quality<select data-sec="display" data-key="preview_height" data-num>
+          <option value="540">Fast (540p)</option><option value="720">Normal (720p)</option><option value="1080">Sharp (1080p)</option></select></label>
+      </div>
+      <p class="note">F11 on the booth keyboard also switches fullscreen on and off.</p>
+      <h3>Second screen</h3>
+      <div class="grid2">
+        <label>Photo slideshow on<select id="secondScreen" data-sec="display" data-key="second_screen" data-num></select></label>
+        <label>Show each new photo for (seconds)<input type="number" min="0" max="3600" data-sec="display" data-key="second_hold"></label>
+      </div>
+      <p class="note">A clean slideshow of every photo for a TV or second monitor. A new photo jumps straight on and stays up
+        (the newest one wins) until nobody has taken a photo for that long; then the slideshow carries on, with the new photos
+        added to the end. Its pace is the slideshow seconds per photo above. <span id="secondState"></span></p>
+      <h3>Printing</h3>
+      <label class="check"><input type="checkbox" data-sec="print" data-key="enabled"> Print every photo</label>
+      <div class="grid2">
+        <label style="grid-column: 1 / -1">Printer<select id="printer" data-sec="print" data-key="printer"></select></label>
+        <label>Copies<input type="number" min="1" max="5" data-sec="print" data-key="copies"></label>
+        <label>Fit<select data-sec="print" data-key="fit"><option value="fit">Whole photo</option><option value="fill">Fill the page (crop)</option></select></label>
+        <label>Seconds between prints<input type="number" min="0" max="3600" data-sec="print" data-key="min_seconds_between"></label>
+        <label>Max prints per hour<input type="number" min="0" max="999" data-sec="print" data-key="max_per_hour"></label>
+        <label>Max prints per day<input type="number" min="0" max="9999" data-sec="print" data-key="max_per_day"></label>
+      </div>
+      <p class="note">0 = no limit. Photos are always saved; over the limit they aren't printed (they're dropped, not queued).</p>
+      <div class="grid2"><label style="grid-column: 1 / -1">If a print fails, the screen says "Your photo is saved &ndash; &hellip;"
+        <input type="text" data-sec="booth" data-key="printer_problem" placeholder="ask a grown-up to check the printer"></label></div>
+      <h3>Phone &amp; tablet access</h3>
+      <div class="grid2">
+        <label>PIN (blank = this laptop only)<input type="text" inputmode="numeric" data-sec="panel" data-key="pin"></label>
+        <label>Port<input type="number" min="1024" max="65535" data-sec="panel" data-key="port"></label>
+      </div>
+      <p class="note" id="phoneUrl"></p>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+let S = null;            // settings from the booth
+let view = "comp";
+
+const pct = v => Math.round(v * 100) + "%";
+const px = v => (+v).toFixed(1) + " px";
+const x2 = v => (+v).toFixed(2);
+const signed = (v, unit = "") => (v > 0 ? "+" : "") + (+v).toFixed(2) + unit;
+
+const KEY = [
+  ["Matte"],
+  ["balance", "Balance", 0, 1, 0.01, pct, "100% keeps yellow, blond hair and cyan solid. Lower only for a very clean screen."],
+  ["clip_black", "Clip black", 0, 1, 0.01, pct, "Raise until the screen is solid black in the Matte view."],
+  ["clip_white", "Clip white", 0, 1, 0.01, pct, "Lower until people are solid white in the Matte view."],
+  ["matte_blur", "Matte blur", 0, 6, 0.1, px, "Smooths camera noise and capture-card colour blockiness."],
+  ["choke", "Choke", -10, 20, 1, v => v + " px", "Shrinks the edge (+) to remove dark or green outlines; grows it (−)."],
+  ["softness", "Softness", 0, 6, 0.1, px, "Feathers the edge."],
+  ["Spill"],
+  ["despill", "Despill", 0, 1, 0.01, pct, "How much green is removed from people."],
+  ["despill_balance", "Despill balance", 0, 1, 0.01, pct, "Lower removes more green, but can shift yellows toward orange."],
+  ["luma_restore", "Luma restore", 0, 1, 0.01, pct, "Puts the removed green back as grey so spill areas don't go dark."],
+  ["edge_subtract", "Clean semi-transparent edges (hair, motion blur)", "check"],
+  ["Edges"],
+  ["light_wrap", "Light wrap", 0, 1, 0.01, pct, "Background light bleeding onto the edges of people."],
+  ["light_wrap_size", "Light wrap size", 1, 60, 1, v => v + " px", ""],
+  ["Garbage matte (force frame edges to background)"],
+  ["garbage.0", "Left", 0, 0.45, 0.01, pct, ""],
+  ["garbage.2", "Right", 0, 0.45, 0.01, pct, ""],
+  ["garbage.1", "Top", 0, 0.45, 0.01, pct, ""],
+  ["garbage.3", "Bottom", 0, 0.45, 0.01, pct, ""],
+];
+const FILL = [
+  ["exposure", "Exposure", -2, 2, 0.05, v => signed(v, " stops"), ""],
+  ["contrast", "Contrast", 0.5, 1.5, 0.01, pct, ""],
+  ["gamma", "Midtones (gamma)", 0.5, 2, 0.01, x2, "Above 1 brightens faces without blowing out highlights."],
+  ["saturation", "Saturation", 0, 2, 0.01, pct, ""],
+  ["temperature", "Temperature", -1, 1, 0.01, v => v == 0 ? "neutral" : signed(v) + (v > 0 ? " warmer" : " cooler"), ""],
+  ["tint", "Tint", -1, 1, 0.01, v => v == 0 ? "neutral" : signed(v) + (v > 0 ? " magenta" : " green"), ""],
+];
+const FILL_DEFAULT = { exposure: 0, contrast: 1, gamma: 1, saturation: 1, temperature: 0, tint: 0 };
+const RES = [[640, 480], [800, 600], [1280, 720], [1920, 1080], [2560, 1440], [3840, 2160]];
+
+// ---- helpers ---------------------------------------------------------------
+function toast(msg, err = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.className = "", err ? 4500 : 1800);
+}
+async function api(path, body, method = "POST") {
+  const opts = method === "GET" ? {} : { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) };
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+const pending = {}; let sendTimer = null;
+function queueSetting(sec, key, value) {           // debounce slider drags
+  (pending[sec] = pending[sec] || {})[key] = value;
+  clearTimeout(sendTimer);
+  sendTimer = setTimeout(flush, 90);
+}
+async function flush() {
+  const body = Object.assign({}, pending); for (const k in pending) delete pending[k];
+  if (!Object.keys(body).length) return;
+  try { const r = await api("/api/settings", body); setDirty(r.dirty); } catch (e) { toast(e.message, true); }
+}
+function setDirty(d) { $("#save").classList.toggle("dirty", !!d); $("#save").textContent = d ? "Save changes" : "Saved"; }
+
+function get(sec, key) {
+  if (key.includes(".")) { const [k, i] = key.split("."); return S[sec][k][+i]; }
+  return S[sec][key];
+}
+function set(sec, key, v) {
+  if (key.includes(".")) {
+    const [k, i] = key.split("."); S[sec][k][+i] = v; queueSetting(sec, k, S[sec][k].slice());
+  } else { S[sec][key] = v; queueSetting(sec, key, v); }
+}
+
+function sliders(el, sec, spec) {
+  el.innerHTML = "";
+  for (const s of spec) {
+    if (s.length === 1) { const h = document.createElement("h3"); h.textContent = s[0]; el.append(h); continue; }
+    if (s[2] === "check") {
+      const l = document.createElement("label"); l.className = "check";
+      l.innerHTML = `<input type="checkbox"> ${s[1]}`;
+      const cb = $("input", l); cb.checked = !!get(sec, s[0]);
+      cb.onchange = () => set(sec, s[0], cb.checked);
+      el.append(l); continue;
+    }
+    const [key, label, min, max, step, fmt, help] = s;
+    const d = document.createElement("div"); d.className = "ctl";
+    d.innerHTML = `<div class="top"><span>${label}</span><span class="val"></span></div>
+      <input type="range" min="${min}" max="${max}" step="${step}">${help ? `<div class="help">${help}</div>` : ""}`;
+    const r = $("input", d), val = $(".val", d);
+    r.value = get(sec, key); val.textContent = fmt(+r.value);
+    r.oninput = () => { val.textContent = fmt(+r.value); set(sec, key, +r.value); };
+    el.append(d);
+  }
+}
+
+// ---- render ----------------------------------------------------------------
+function renderAll() {
+  sliders($("#keyControls"), "keyer", KEY);
+  sliders($("#fillControls"), "fill", FILL);
+  renderSwatch();
+  // simple bound inputs (booth, print, panel, plate auto gain)
+  for (const el of $$("[data-sec]")) {
+    const sec = el.dataset.sec, key = el.dataset.key, v = S[sec][key];
+    if (el.type === "checkbox") { el.checked = !!v; el.onchange = () => set(sec, key, el.checked); }
+    else {
+      el.value = v;
+      el.onchange = () => set(sec, key, el.type === "number" || "num" in el.dataset ? +el.value : el.value);
+    }
+  }
+  renderCamera();
+}
+function renderSwatch() { const [r, g, b] = S.keyer.screen_color; $("#swatch").style.background = `rgb(${r},${g},${b})`; $("#swatch").title = `RGB ${r}, ${g}, ${b}`; }
+
+function renderStatus(st) {
+  const chips = [];
+  chips.push([st.camera || "No camera", /waiting|lost|can't|no camera/i.test(st.camera) ? "bad" : "good"]);
+  if (st.remote.enabled) chips.push([st.remote.connected ? `Remote ${st.remote.battery ?? "?"}%` : "Remote: searching", st.remote.connected ? "good" : "warn"]);
+  chips.push([`${st.fps} fps`, st.fps < 10 ? "warn" : ""]);
+  chips.push(["Plate " + (st.plate ? "on" : "off"), ""]);
+  const pr = st.print || {}, wait = Math.ceil(pr.wait || 0);
+  const mmss = `${Math.floor(wait / 60)}:${String(wait % 60).padStart(2, "0")}`;
+  const PRINT = { ready: ["Printer ready", "good"], printing: ["Printing…", "good"], cooldown: [`Printer resting ${mmss}`, "warn"],
+    hourly: [`Printer resting ${mmss}`, "warn"], daily: ["No more prints today", "warn"], error: ["Printer problem", "bad"] };
+  if (PRINT[pr.kind]) chips.push(PRINT[pr.kind]);
+  chips.push([st.background, ""]);
+  $("#chips").innerHTML = chips.map(([t, c]) => `<span class="chip ${c}">${t}</span>`).join("");
+  $("#plateState").textContent = st.plate ? "Clean plate is on" : "No clean plate";
+  $("#camStatus").textContent = st.camera;
+  $("#outDir").textContent = "Saving to " + st.output_dir;
+  $("#secondState").textContent = st.second_screen === "off" ? "" : `Right now: ${st.second_screen}.`;
+  setDirty(st.dirty);
+}
+
+// ---- camera tab --------------------------------------------------------------
+async function loadCameras() {
+  const backend = $("#camBackend").value || S.camera.backend;
+  let cams = [];
+  try { cams = await api(`/api/cameras?backend=${backend}`, null, "GET"); } catch (e) { toast(e.message, true); }
+  const sel = $("#camName"); sel.innerHTML = "";
+  const opts = cams.map(c => c.name);
+  if (S.camera.name && !opts.includes(S.camera.name)) opts.unshift(S.camera.name);
+  for (const n of opts) sel.append(new Option(n, n));
+  sel.append(new Option("Test pattern (no camera needed)", "__test__"));
+  sel.value = String(S.camera.index) === "test" && !S.camera.name ? "__test__" : (S.camera.name || opts[0] || "__test__");
+}
+function renderCamera() {
+  const c = S.camera;
+  $("#camBackend").value = c.backend;
+  const res = $("#camRes"); res.innerHTML = "";
+  const list = RES.slice(); if (!list.some(([w, h]) => w == c.width && h == c.height)) list.push([c.width, c.height]);
+  for (const [w, h] of list) res.append(new Option(`${w} × ${h}`, `${w}x${h}`));
+  res.value = `${c.width}x${c.height}`;
+  const fps = $("#camFps"); fps.innerHTML = "";
+  for (const f of [15, 24, 25, 30, 50, 60]) fps.append(new Option(f + " fps", f));
+  fps.value = c.fps;
+  $("#camFourcc").value = c.fourcc || "";
+  $("#camMirror").checked = !!c.mirror;
+  loadCameras();
+}
+$("#camBackend").onchange = loadCameras;
+$("#camRefresh").onclick = loadCameras;
+$("#camApply").onclick = async () => {
+  const [w, h] = $("#camRes").value.split("x").map(Number);
+  const name = $("#camName").value;
+  const cam = { name: name === "__test__" ? "" : name, index: name === "__test__" ? "test" : S.camera.index,
+    backend: $("#camBackend").value, width: w, height: h, fps: +$("#camFps").value, fourcc: $("#camFourcc").value, mirror: $("#camMirror").checked };
+  Object.assign(S.camera, cam);
+  try { const r = await api("/api/settings", { camera: cam }); setDirty(r.dirty); toast("Switching camera…"); } catch (e) { toast(e.message, true); }
+};
+$("#openFolder").onclick = () => api("/api/open_folder").then(() => toast("Opened on the booth laptop")).catch(e => toast(e.message, true));
+$("#camDialog").onclick = () => api("/api/camera/dialog").then(() => toast("Opened on the booth laptop")).catch(e => toast(e.message, true));
+
+// ---- preview -------------------------------------------------------------------
+function startPreview() { $("#preview").src = `/preview.mjpg?view=${view}&t=${Date.now()}`; }
+$("#views").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  view = b.dataset.view; $$("#views button").forEach(x => x.classList.toggle("on", x === b)); startPreview();
+};
+$("#preview").onerror = () => setTimeout(startPreview, 1500);
+$("#previewBox").onclick = async e => {
+  const img = $("#preview"), r = img.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  if (x < 0 || x > 1 || y < 0 || y > 1) return;
+  try { const d = await api("/api/pick", { x, y }); S.keyer.screen_color = d.screen_color; renderSwatch(); setDirty(true); toast(`Screen colour set to RGB ${d.screen_color.join(", ")}`); }
+  catch (err) { toast(err.message, true); }
+};
+$("#autoScreen").onclick = async () => {
+  try { const d = await api("/api/auto_screen"); S.keyer.screen_color = d.screen_color; renderSwatch(); setDirty(true); toast("Screen colour found"); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---- tabs, save, revert, plate, fill reset ----------------------------------
+$("#tabs").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  $$("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $$(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + b.dataset.tab));
+  try { localStorage.setItem("tab", b.dataset.tab); } catch (_) {}
+};
+$("#save").onclick = async () => { await flush(); try { const st = await api("/api/save"); renderStatus(st.status); toast("Saved"); } catch (e) { toast(e.message, true); } };
+$("#revert").onclick = async () => {
+  if (!confirm("Undo all changes since the last save?")) return;
+  try { const st = await api("/api/revert"); S = st.settings; renderAll(); renderStatus(st.status); toast("Reverted"); } catch (e) { toast(e.message, true); }
+};
+$("#plateCapture").onclick = () => api("/api/plate", { action: "capture" }).then(() => toast("Everyone out of shot — capturing in 5 seconds")).catch(e => toast(e.message, true));
+$("#plateClear").onclick = () => api("/api/plate", { action: "clear" }).then(() => toast("Clean plate cleared")).catch(e => toast(e.message, true));
+$("#fillReset").onclick = () => { Object.assign(S.fill, FILL_DEFAULT); for (const k in FILL_DEFAULT) queueSetting("fill", k, FILL_DEFAULT[k]); sliders($("#fillControls"), "fill", FILL); };
+
+// ---- backgrounds -------------------------------------------------------------------
+let BGS = [];
+function renderBgs(list) {
+  BGS = list || BGS;
+  const el = $("#bgs"); el.innerHTML = "";
+  BGS.forEach((b, i) => {
+    const d = document.createElement("div"); d.className = "bg" + (b.current ? " current" : ""); d.draggable = true; d.dataset.file = b.file;
+    d.innerHTML = `<img loading="lazy" src="/bg/${encodeURIComponent(b.file)}" alt="">
+      <div class="name" title="Tap to rename">${b.name.replace(/</g, "&lt;")}</div>
+      <div class="tools"><button data-act="left" ${i === 0 ? "disabled" : ""}>◀</button><button data-act="right" ${i === BGS.length - 1 ? "disabled" : ""}>▶</button>
+      <button class="use" data-act="use">${b.current ? "Showing" : "Use now"}</button><button class="danger" data-act="delete" title="Delete">✕</button></div>`;
+    el.append(d);
+  });
+  if (!BGS.length) el.innerHTML = `<p class="note">No backgrounds yet — add some pictures.</p>`;
+}
+async function bgAction(action, body) {
+  try { const r = await api(`/api/backgrounds/${action}`, body); renderBgs(r.backgrounds); } catch (e) { toast(e.message, true); }
+}
+function move(file, to) {
+  const files = BGS.map(b => b.file); const from = files.indexOf(file);
+  files.splice(to, 0, files.splice(from, 1)[0]); bgAction("order", { files });
+}
+$("#bgs").onclick = e => {
+  const card = e.target.closest(".bg"); if (!card) return;
+  const file = card.dataset.file, i = BGS.findIndex(b => b.file === file);
+  const act = e.target.closest("button")?.dataset.act;
+  if (act === "left") move(file, i - 1);
+  else if (act === "right") move(file, i + 1);
+  else if (act === "use") bgAction("select", { file });
+  else if (act === "delete") { if (confirm(`Delete "${BGS[i].name}"? (It's moved to the backgrounds\\deleted folder.)`)) bgAction("delete", { file }); }
+  else if (e.target.classList.contains("name")) {
+    const name = prompt("Name", BGS[i].name); if (name && name.trim()) bgAction("rename", { file, name: name.trim() });
+  }
+};
+let dragFile = null;
+$("#bgs").addEventListener("dragstart", e => { const c = e.target.closest(".bg"); if (!c) return; dragFile = c.dataset.file; c.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+$("#bgs").addEventListener("dragend", () => { dragFile = null; $$(".bg").forEach(c => c.classList.remove("dragging", "target")); });
+$("#bgs").addEventListener("dragover", e => { const c = e.target.closest(".bg"); if (!dragFile || !c) return; e.preventDefault(); $$(".bg").forEach(x => x.classList.toggle("target", x === c)); });
+$("#bgs").addEventListener("drop", e => {
+  const c = e.target.closest(".bg"); if (!dragFile || !c) return; e.preventDefault();
+  move(dragFile, BGS.findIndex(b => b.file === c.dataset.file));
+});
+
+async function upload(files) {
+  const list = [...files].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|bmp|webp)$/i.test(f.name));
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    $("#uploadState").textContent = `Uploading ${i + 1} of ${list.length}: ${f.name}`;
+    try {
+      const r = await fetch("/api/backgrounds/upload", { method: "POST", headers: { "X-Filename": encodeURIComponent(f.name) }, body: f });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText);
+      renderBgs(d.backgrounds);
+    } catch (e) { toast(e.message, true); }
+  }
+  $("#uploadState").textContent = list.length ? `Added ${list.length} picture${list.length > 1 ? "s" : ""}` : "";
+}
+$("#pick").onclick = () => $("#files").click();
+$("#files").onchange = e => { upload(e.target.files); e.target.value = ""; };
+const drop = $("#drop");
+drop.addEventListener("dragover", e => { if (dragFile) return; e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { if (dragFile) return; e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); });
+
+// ---- start -----------------------------------------------------------------------
+async function load() {
+  const st = await api("/api/state", null, "GET");
+  S = st.settings;
+  const pr = $("#printer"); pr.innerHTML = ""; pr.append(new Option("Windows default printer", ""));
+  for (const p of st.printers) pr.append(new Option(p, p));
+  const mon = $("#monitor"); mon.innerHTML = "";
+  for (const m of (st.monitors.length ? st.monitors : [{ index: 0, name: "1: main screen" }])) mon.append(new Option(m.name, m.index));
+  const sec = $("#secondScreen"); sec.innerHTML = ""; sec.append(new Option("Off", -1));
+  for (const m of st.monitors) sec.append(new Option(m.name, m.index));
+  const want = st.settings.display.second_screen;      // keep a screen that isn't plugged in right now
+  if (want >= 0 && !st.monitors.some(m => m.index === want)) sec.append(new Option(`${want + 1}: not connected`, want));
+  renderAll(); renderStatus(st.status); renderBgs(st.backgrounds);
+  $("#phoneUrl").textContent = st.panel.lan ? `On a phone or tablet on this network: ${st.panel.lan}` : "Set a PIN to open this page from a phone or tablet on the same network (press Save to keep it; Windows may ask to allow Python through the firewall).";
+}
+async function poll() {
+  try {
+    const st = await api("/api/state?full=0", null, "GET"); renderStatus(st.status);
+    if (st.status.background !== poll.bg) { poll.bg = st.status.background; const r = await api("/api/state", null, "GET"); renderBgs(r.backgrounds); }
+  } catch (_) {}
+  setTimeout(poll, 2000);
+}
+try { const t = localStorage.getItem("tab"); if (t) $(`#tabs [data-tab="${t}"]`)?.click(); } catch (_) {}
+load().then(() => { startPreview(); poll(); }).catch(e => toast("Can't reach the booth: " + e.message, true));
+</script>
+</body>
+</html>

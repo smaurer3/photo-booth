@@ -1,0 +1,10 @@
+numpy
+opencv-python
+numba
+pygame
+# bleak 1.x hits a typing bug in Python 3.9.0 itself (fixed in 3.9.1)
+bleak; python_full_version >= "3.9.1"
+bleak==0.22.3; python_full_version < "3.9.1"
+pywin32
+Pillow
+cv2_enumerate_cameras

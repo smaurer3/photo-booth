@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.tmp
+
+# Kept local: settings.json has the panel PIN and printer name, the clean plate
+# is a photo of the room, and backgrounds added from the panel are personal.
+# settings.example.json and the placeholder backgrounds are in git instead.
+settings.json
+clean_plate.png
+backgrounds/*
+!backgrounds/01_Sunset_Beach.jpg
+!backgrounds/02_Night_Sky.jpg
+!backgrounds/03_Mountains.jpg
+!backgrounds/04_Party.jpg

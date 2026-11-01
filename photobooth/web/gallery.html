@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Booth Gallery</title>
+<style>
+  :root {
+    --bg: #111317; --panel: #1b1e24; --panel2: #232730; --line: #2f3440;
+    --text: #e8eaee; --dim: #9aa1ad; --accent: #4fb3ff;
+    --good: #5fd38d; --warn: #ffb547; --bad: #ff6b6b; --off: #7d8492;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+           padding: 10px 16px; background: #0c0e11ee; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+  header h1 { font-size: 17px; margin: 0 6px 0 0; font-weight: 650; }
+  .pages { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .pages a { color: var(--dim); text-decoration: none; padding: 6px 12px; font-size: 14px; }
+  .pages a.on { background: var(--panel2); color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; background: var(--panel2); color: var(--dim); white-space: nowrap; }
+  .chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+  button, .btn { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+           padding: 7px 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover, .btn:hover { border-color: #46506a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 600; }
+  main { padding: 16px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 900px) { main { padding: 10px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0; font-weight: 600; }
+  .empty { color: var(--dim); font-size: 14px; }
+
+  .ghead { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .ghead h2 { flex: 1; }
+  .day { margin: 14px 0 8px; color: var(--dim); font-size: 13px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  @media (max-width: 500px) { .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }
+  .thumb { position: relative; border-radius: 8px; overflow: hidden; cursor: zoom-in; background: #000; aspect-ratio: 4 / 3; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+  .thumb:hover img { transform: scale(1.04); }
+  .thumb span { position: absolute; left: 6px; bottom: 5px; font-size: 12px; background: #000a; padding: 1px 6px; border-radius: 5px; }
+  .thumb.new { outline: 3px solid var(--accent); }
+  .thumb .del, .thumb .print { position: absolute; top: 5px; width: 30px; height: 30px; padding: 0; justify-content: center;
+                border-radius: 50%; background: #000b; border: 1px solid #ffffff30; color: #fff; font-size: 15px; line-height: 1; }
+  .thumb .del { right: 5px; } .thumb .print { left: 5px; }
+  .thumb .del:hover { background: var(--bad); border-color: var(--bad); }
+  .thumb .print:hover { background: var(--accent); border-color: var(--accent); color: #04121f; }
+  .thumb .print svg, .lb .bar2 svg { width: 17px; height: 17px; }
+
+  /* full-screen viewer */
+  .lb { position: fixed; inset: 0; z-index: 50; background: #000; display: none; }
+  .lb.open { display: block; }
+  .lb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .35s; }
+  .lb .bar2 { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px;
+              background: linear-gradient(#000c, #0000); transition: opacity .3s; }
+  .lb .bar2 .info { flex: 1; color: #ddd; font-size: 14px; min-width: 10em; }
+  .lb .bar2 button, .lb .bar2 .btn { background: #ffffff1a; border-color: #ffffff22; }
+  .lb .bar2 button.on { background: var(--accent); color: #04121f; }
+  .lb .bar2 button.danger:hover { background: var(--bad); border-color: var(--bad); }
+  .lb .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 56px; height: 90px; font-size: 40px; line-height: 1;
+             background: #0006; border: 0; color: #fff; border-radius: 10px; transition: opacity .3s; justify-content: center; }
+  .lb .prev { left: 10px; } .lb .next { right: 10px; }
+  .lb.idle .bar2, .lb.idle .nav { opacity: 0; } .lb.idle { cursor: none; }
+  .lb .newbadge { position: absolute; right: 18px; bottom: 18px; background: var(--accent); color: #04121f; font-weight: 700;
+                  padding: 6px 14px; border-radius: 99px; opacity: 0; transition: opacity .4s; }
+  .lb .newbadge.show { opacity: 1; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line);
+           padding: 9px 16px; border-radius: 9px; opacity: 0; transition: opacity .3s; z-index: 60; pointer-events: none; }
+  #toast.show { opacity: 1; } #toast.err { border-color: var(--bad); color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Photo Booth</h1>
+  <nav class="pages"><a href="/">Dashboard</a><a href="/gallery" class="on">Gallery</a><a href="/settings">Settings</a></nav>
+  <div class="chips" id="chips"></div>
+</header>
+
+<main>
+  <section class="card">
+    <div class="ghead"><h2 id="gTitle">Photos</h2>
+      <button class="primary" id="slideshowBtn">&#9654; Slideshow</button></div>
+    <div id="gallery"><p class="empty">No photos yet.</p></div>
+  </section>
+</main>
+
+<div class="lb" id="lb">
+  <img id="lbImg" alt="">
+  <div class="bar2">
+    <span class="info" id="lbInfo"></span>
+    <a class="btn" id="lbDownload" download>Download</a>
+    <button id="lbPrint" title="P"></button>
+    <button class="danger" id="lbDelete" title="Delete">Delete</button>
+    <button id="lbShow" title="Space">&#9654; Slideshow</button>
+    <button id="lbFull" title="F">Fullscreen</button>
+    <button id="lbClose" title="Esc">&#10005;</button>
+  </div>
+  <button class="nav prev" id="lbPrev" aria-label="Newer">&#8249;</button>
+  <button class="nav next" id="lbNext" aria-label="Older">&#8250;</button>
+  <div class="newbadge" id="lbNew">New photo!</div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const SLIDE_SECONDS = 5;
+let photos = [], known = new Set(), first = true;
+
+async function get(path) {
+  const r = await fetch(path); if (!r.ok) throw new Error(r.statusText); return r.json();
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function toast(msg, err = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.className = "", err ? 4500 : 2200);
+}
+
+const PRINTER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+  <path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><rect x="7" y="14" width="10" height="7" fill="#000a"/></svg>`;
+$("#lbPrint").innerHTML = PRINTER_SVG + " Print";
+
+function renderChips(st) {
+  const chips = [[st.camera || "No camera", /waiting|lost|can't|no camera/i.test(st.camera) ? "bad" : "good"]];
+  if (st.remote.enabled) chips.push([st.remote.connected ? `Remote ${st.remote.battery ?? "?"}%` : "Remote: searching", st.remote.connected ? "good" : "warn"]);
+  const pk = st.print && st.print.kind;
+  if (pk === "printing") chips.push(["Printing…", "good"]);
+  else if (pk === "error") chips.push(["Printer problem — see the dashboard", "bad"]);
+  chips.push([st.background, ""]);
+  if (st.state === "SLIDESHOW") chips.push(["Booth showing slideshow", "warn"]);
+  $("#chips").innerHTML = chips.map(([t, c]) => `<span class="chip ${c}">${esc(t)}</span>`).join("");
+}
+
+// ---- gallery -----------------------------------------------------------------------
+function dayLabel(d) {
+  const today = new Date(), iso = x => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+  if (d === iso(today)) return "Today";
+  const y = new Date(today); y.setDate(today.getDate() - 1); if (d === iso(y)) return "Yesterday";
+  return new Date(d + "T12:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+function renderGallery(fresh = new Set()) {
+  $("#gTitle").textContent = `Photos (${photos.length})`;
+  if (!photos.length) { $("#gallery").innerHTML = `<p class="empty">No photos yet.</p>`; return; }
+  let html = "", day = null;
+  photos.forEach((p, i) => {
+    if (p.date !== day) { if (day !== null) html += "</div>"; day = p.date; html += `<div class="day">${dayLabel(day)}</div><div class="grid">`; }
+    html += `<div class="thumb${fresh.has(p.id) ? " new" : ""}" data-i="${i}"><img loading="lazy" src="/photo/${encodeURIComponent(p.id)}?thumb=1" alt="">` +
+            `<span>${p.time.slice(0, 5)}</span><button class="print" title="Print this photo again" aria-label="Print">${PRINTER_SVG}</button>` +
+            `<button class="del" title="Delete this photo" aria-label="Delete">&#10005;</button></div>`;
+  });
+  $("#gallery").innerHTML = html + "</div>";
+}
+$("#gallery").onclick = e => {
+  const t = e.target.closest(".thumb"); if (!t) return;
+  if (e.target.closest(".del")) deletePhoto(photos[+t.dataset.i]);
+  else if (e.target.closest(".print")) printPhoto(photos[+t.dataset.i]);
+  else show(+t.dataset.i);
+};
+
+async function printPhoto(p) {
+  if (!p || !confirm(`Print the photo from ${dayLabel(p.date).toLowerCase()} at ${p.time.slice(0, 5)} again?\n\n` +
+                     "Reprints always print: the guest print limits don't apply, and they don't use them up.")) return;
+  try {
+    const r = await fetch("/api/photos/print", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText);
+    toast(`Sending to ${d.printer}` + (d.copies > 1 ? ` (${d.copies} copies)` : "") + "…");
+    for (let i = 0; i < 60; i++) {                     // tell them how it went once the printer has it
+      await new Promise(r => setTimeout(r, 1000));
+      const s = await get("/api/stats");
+      if (!s.print.busy) {
+        if (s.print.error) toast("Print failed: " + s.print.error, true);
+        else toast("Sent — it'll come out of the printer in a moment");
+        break;
+      }
+    }
+  } catch (e) { toast("Couldn't print it: " + e.message, true); }
+}
+
+async function deletePhoto(p) {
+  if (!p || !confirm(`Delete the photo from ${dayLabel(p.date).toLowerCase()} at ${p.time.slice(0, 5)}?\n\nIt's moved to the "deleted" folder in the photos folder, so it can be put back.`)) return false;
+  try {
+    const r = await fetch("/api/photos/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+    const d = await r.json(); if (!r.ok) throw new Error(d.error || r.statusText);
+    photos = d; known = new Set(d.map(x => x.id)); renderGallery();
+    toast("Photo deleted");
+    return true;
+  } catch (e) { toast("Couldn't delete it: " + e.message, true); return false; }
+}
+
+// ---- full-screen viewer ------------------------------------------------------------
+const lb = $("#lb"), img = $("#lbImg");
+let cur = 0, slideTimer = null, idleTimer = null;
+function show(i) {
+  if (!photos.length) { close(); return; }
+  cur = (i + photos.length) % photos.length;
+  const p = photos[cur], src = "/photo/" + encodeURIComponent(p.id);
+  img.style.opacity = 0;
+  const pre = new Image(); pre.onload = () => { img.src = src; img.style.opacity = 1; }; pre.src = src;
+  if (photos[cur + 1]) new Image().src = "/photo/" + encodeURIComponent(photos[cur + 1].id);   // preload the next one
+  $("#lbInfo").textContent = `${dayLabel(p.date)} ${p.time} — ${cur + 1} of ${photos.length}`;
+  $("#lbDownload").href = src; $("#lbDownload").download = p.id.split("/")[1];
+  lb.classList.add("open"); poke();
+}
+function openPhoto(id) { const i = photos.findIndex(p => p.id === id); if (i >= 0) show(i); }
+function close() {
+  lb.classList.remove("open"); stopSlides();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+function startSlides() {
+  stopSlides(); $("#lbShow").classList.add("on"); $("#lbShow").innerHTML = "&#10073;&#10073; Pause";
+  slideTimer = setInterval(() => show(cur + 1), SLIDE_SECONDS * 1000);
+}
+function stopSlides() { clearInterval(slideTimer); slideTimer = null; $("#lbShow").classList.remove("on"); $("#lbShow").innerHTML = "&#9654; Slideshow"; }
+function toggleFull() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else (lb.requestFullscreen ? lb.requestFullscreen() : Promise.reject()).catch(() => {});
+}
+function poke() {                        // hide the controls after a few idle seconds
+  lb.classList.remove("idle"); clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => lb.classList.add("idle"), 3000);
+}
+$("#lbPrev").onclick = () => { show(cur - 1); if (slideTimer) startSlides(); };
+$("#lbNext").onclick = () => { show(cur + 1); if (slideTimer) startSlides(); };
+$("#lbClose").onclick = close;
+$("#lbDelete").onclick = async () => {
+  const was = cur, sliding = !!slideTimer; stopSlides();
+  if (await deletePhoto(photos[cur])) { show(Math.min(was, photos.length - 1)); if (sliding) startSlides(); }
+  else if (sliding) startSlides();
+};
+$("#lbPrint").onclick = () => { const sliding = !!slideTimer; stopSlides(); printPhoto(photos[cur]).then(() => sliding && startSlides()); };
+$("#lbShow").onclick = () => slideTimer ? stopSlides() : startSlides();
+$("#lbFull").onclick = toggleFull;
+if (!document.fullscreenEnabled) $("#lbFull").style.display = "none";
+$("#slideshowBtn").onclick = () => { if (!photos.length) return; show(0); startSlides(); toggleFull(); };
+lb.addEventListener("mousemove", poke);
+document.addEventListener("keydown", e => {
+  if (!lb.classList.contains("open")) return;
+  if (e.key === "Escape" && !document.fullscreenElement) close();
+  else if (e.key === "ArrowLeft") $("#lbPrev").click();
+  else if (e.key === "ArrowRight") $("#lbNext").click();
+  else if (e.key === " ") { e.preventDefault(); $("#lbShow").click(); }
+  else if (e.key.toLowerCase() === "f") toggleFull();
+  else if (e.key === "Delete") $("#lbDelete").click();
+  else if (e.key.toLowerCase() === "p") $("#lbPrint").click();
+  poke();
+});
+let touchX = null;
+lb.addEventListener("touchstart", e => { touchX = e.touches[0].clientX; poke(); }, { passive: true });
+lb.addEventListener("touchend", e => {
+  if (touchX === null) return; const dx = e.changedTouches[0].clientX - touchX; touchX = null;
+  if (Math.abs(dx) > 50) (dx > 0 ? $("#lbPrev") : $("#lbNext")).click();
+});
+
+// ---- live updates ------------------------------------------------------------------
+async function refreshPhotos() {
+  const list = await get("/api/photos");
+  const fresh = new Set(first ? [] : list.filter(p => !known.has(p.id)).map(p => p.id));
+  if (first || fresh.size || list.length !== photos.length) {
+    const viewing = photos[cur] && photos[cur].id;
+    photos = list; known = new Set(list.map(p => p.id));
+    renderGallery(fresh);
+    if (lb.classList.contains("open")) {
+      if (fresh.size && slideTimer) {                  // slideshow: show each new photo as it's taken
+        show(0); startSlides();
+        $("#lbNew").classList.add("show"); setTimeout(() => $("#lbNew").classList.remove("show"), 3000);
+      } else { const i = photos.findIndex(p => p.id === viewing); cur = i >= 0 ? i : 0; }
+    }
+  }
+  if (first && location.hash.length > 1) openPhoto(decodeURIComponent(location.hash.slice(1)));   // from the dashboard's activity
+  first = false;
+}
+async function tick() {
+  try {
+    const st = await get("/api/state?full=0");
+    renderChips(st.status);
+    await refreshPhotos();
+  } catch (_) { /* booth restarting; try again */ }
+  setTimeout(tick, 2500);
+}
+tick();
+</script>
+</body>
+</html>

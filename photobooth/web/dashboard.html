@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Booth</title>
+<style>
+  :root {
+    --bg: #111317; --panel: #1b1e24; --panel2: #232730; --line: #2f3440;
+    --text: #e8eaee; --dim: #9aa1ad; --accent: #4fb3ff;
+    --good: #5fd38d; --warn: #ffb547; --day: #be96ff; --bad: #ff6b6b; --off: #7d8492;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+           padding: 10px 16px; background: #0c0e11ee; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+  header h1 { font-size: 17px; margin: 0 6px 0 0; font-weight: 650; }
+  .pages { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .pages a { color: var(--dim); text-decoration: none; padding: 6px 12px; font-size: 14px; }
+  .pages a.on { background: var(--panel2); color: var(--text); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+  .chip { font-size: 12.5px; padding: 3px 9px; border-radius: 99px; background: var(--panel2); color: var(--dim); white-space: nowrap; }
+  .chip.good { color: var(--good); } .chip.warn { color: var(--warn); } .chip.bad { color: var(--bad); }
+  button, .btn { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+           padding: 7px 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover, .btn:hover { border-color: #46506a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 600; }
+  main { display: grid; grid-template-columns: minmax(320px, 1.3fr) minmax(300px, 1fr); gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 10px; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .preview img { display: block; width: 100%; height: auto; min-height: 120px; border-radius: 8px; background: #000; }
+  .side { display: flex; flex-direction: column; gap: 16px; }
+
+  .printer { display: flex; gap: 14px; align-items: center; border-left: 6px solid var(--off); }
+  .printer .icon { width: 64px; height: 64px; flex: none; }
+  .printer .state { font-size: 22px; font-weight: 700; line-height: 1.15; }
+  .printer .sub { color: var(--dim); font-size: 14px; margin-top: 2px; }
+  .printer .count { margin-left: auto; font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .printer.ready, .printer.printing { border-color: var(--good); } .printer.ready .state, .printer.printing .state { color: var(--good); }
+  .printer.cooldown, .printer.hourly { border-color: var(--warn); } .printer.cooldown .state, .printer.hourly .state, .printer .count { color: var(--warn); }
+  .printer.daily { border-color: var(--day); } .printer.daily .state { color: var(--day); }
+  .printer.error { border-color: var(--bad); } .printer.error .state { color: var(--bad); }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel2); border-radius: 9px; padding: 10px 12px; }
+  .stat .n { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .of { color: var(--dim); font-size: 13px; }
+  .stat .label { color: var(--dim); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .bar { height: 5px; background: #ffffff14; border-radius: 3px; margin-top: 7px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--good); width: 0; transition: width .4s; }
+  .bar i.high { background: var(--warn); } .bar i.full { background: var(--bad); }
+
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; }
+  .feed li { display: flex; gap: 9px; align-items: baseline; padding: 5px 2px; border-bottom: 1px solid #ffffff08; font-size: 14px; }
+  .feed .t { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12.5px; flex: none; }
+  .feed .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--off); transform: translateY(-1px); }
+  .feed .photo .dot { background: var(--accent); } .feed .sent .dot, .feed .printed .dot { background: var(--good); }
+  .feed .skip .dot { background: var(--warn); } .feed .error .dot { background: var(--bad); }
+  .feed a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  .empty { color: var(--dim); font-size: 14px; }
+
+  .shoot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 12px; }
+  .shoot button { font-size: 19px; padding: 12px 26px; border-radius: 12px; min-width: 210px; justify-content: center; }
+  .shoot button.cancel { background: var(--warn); border-color: var(--warn); color: #1f1400; font-weight: 600; }
+  .shoot button:disabled { opacity: .55; cursor: default; }
+  .shoot .note { color: var(--dim); font-size: 13px; flex: 1; min-width: 14em; }
+  .bgpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; max-height: 360px; overflow: auto; padding: 3px; }
+  .bgpick .bg { position: relative; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 16 / 10;
+                outline: 2px solid transparent; outline-offset: 1px; display: block; }
+  .bgpick .bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .bgpick .bg span { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 12.5px; text-align: left;
+                     background: linear-gradient(#0000, #000c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bgpick .bg:hover { outline-color: #46506a; }
+  .bgpick .bg.current { outline: 3px solid var(--good); }
+  .bgpick .bg.current::after { content: "Showing"; position: absolute; top: 5px; right: 5px; font-size: 11.5px; font-weight: 700;
+                               background: var(--good); color: #062012; padding: 1px 7px; border-radius: 99px; }
+  .left { display: flex; flex-direction: column; gap: 16px; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line);
+           padding: 9px 16px; border-radius: 9px; opacity: 0; transition: opacity .3s; z-index: 60; pointer-events: none; }
+  #toast.show { opacity: 1; } #toast.err { border-color: var(--bad); color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Photo Booth</h1>
+  <nav class="pages"><a href="/" class="on">Dashboard</a><a href="/gallery">Gallery</a><a href="/settings">Settings</a></nav>
+  <div class="chips" id="chips"></div>
+</header>
+
+<main>
+  <section class="left">
+    <div class="card preview">
+      <h2>Live</h2>
+      <img id="preview" alt="live booth view">
+      <div class="shoot">
+        <button class="primary" id="shoot">&#128247; Take photo</button>
+        <span class="note" id="shootNote">Same as the remote's big button: counts down, then takes the photo.</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Background</h2>
+      <div class="bgpick" id="bgpick"><p class="empty">No backgrounds yet &mdash; add some in Settings &rarr; Backgrounds.</p></div>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="card printer" id="printer">
+      <svg class="icon" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="16" y="6" width="32" height="18" rx="2" fill="#e8e8e8"/>
+        <rect x="6" y="22" width="52" height="24" rx="6" fill="currentColor"/>
+        <rect x="14" y="38" width="36" height="4" rx="1" fill="#191919"/>
+        <circle cx="50" cy="28" r="2.4" fill="#fff"/>
+        <rect x="18" y="42" width="28" height="16" rx="1.5" fill="#fafafa"/>
+      </svg>
+      <div><div class="state" id="pState">&hellip;</div><div class="sub" id="pSub"></div></div>
+      <div class="count" id="pCount"></div>
+    </div>
+
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="label">Prints today</div><div class="n" id="sToday">&ndash;</div><div class="of" id="sTodayOf"></div><div class="bar"><i id="bToday"></i></div></div>
+        <div class="stat"><div class="label">Prints this hour</div><div class="n" id="sHour">&ndash;</div><div class="of" id="sHourOf"></div><div class="bar"><i id="bHour"></i></div></div>
+        <div class="stat"><div class="label">Photos today</div><div class="n" id="sPhotos">&ndash;</div><div class="of">taken</div></div>
+        <div class="stat"><div class="label">All photos</div><div class="n" id="sAll">&ndash;</div><div class="of" id="sAllOf"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent activity</h2>
+      <ul class="feed" id="feed"><li class="empty">Nothing yet</li></ul>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+let printInfo = null, printAt = 0, bgName = null, bgAt = 0;
+
+async function get(path) {
+  const r = await fetch(path); if (!r.ok) throw new Error(r.statusText); return r.json();
+}
+const mmss = s => { s = Math.max(0, Math.ceil(s)); return s >= 120 ? Math.ceil(s / 60) + " min" : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || r.statusText); return d;
+}
+function toast(msg, err = false) {
+  const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.className = "", err ? 4500 : 2200);
+}
+
+// ---- status chips ------------------------------------------------------------
+function renderChips(st) {
+  const chips = [[st.camera || "No camera", /waiting|lost|can't|no camera/i.test(st.camera) ? "bad" : "good"]];
+  if (st.remote.enabled) chips.push([st.remote.connected ? `Remote ${st.remote.battery ?? "?"}%` : "Remote: searching", st.remote.connected ? "good" : "warn"]);
+  chips.push([st.background, ""]);
+  if (st.state === "SLIDESHOW") chips.push(["Booth showing slideshow", "warn"]);
+  $("#chips").innerHTML = chips.map(([t, c]) => `<span class="chip ${c}">${esc(t)}</span>`).join("");
+}
+
+// ---- printer card + stats --------------------------------------------------------
+function renderPrinter() {
+  if (!printInfo) return;
+  const p = printInfo.print, L = printInfo.limits, left = p.wait - (Date.now() - printAt) / 1000;
+  const card = $("#printer"), M = {
+    off: ["Printing is off", "Turn it on in Settings → Booth & print", ""],
+    ready: ["Ready to print", "The next photo will print", ""],
+    printing: ["Printing…", "Sending a photo to the printer", ""],
+    cooldown: [left > 0 ? "Printer resting" : "Ready to print", left > 0 ? "Photos taken now won't print" : "The next photo will print", left > 0 ? mmss(left) : ""],
+    hourly: ["Hourly print limit reached", `Max ${L.max_per_hour} an hour — photos taken now won't print`, mmss(left)],
+    daily: ["No more prints today", `Daily limit of ${L.max_per_day} reached — photos still save`, ""],
+    error: ["Printer needs help", p.error || "The last print failed", ""],
+  }[p.kind] || ["", "", ""];
+  card.className = "card printer " + (p.kind === "cooldown" && left <= 0 ? "ready" : p.kind);
+  $("#pState").textContent = M[0]; $("#pSub").textContent = M[1]; $("#pCount").textContent = M[2];
+}
+function bar(el, n, max) {
+  const f = max ? Math.min(1, n / max) : 0;
+  el.style.width = (f * 100) + "%"; el.className = f >= 1 ? "full" : f >= .8 ? "high" : "";
+}
+function renderStats(s) {
+  printInfo = s; printAt = Date.now(); renderPrinter();
+  $("#sToday").textContent = s.prints_today; $("#sTodayOf").textContent = s.limits.max_per_day ? `of ${s.limits.max_per_day}` : "no limit";
+  $("#sHour").textContent = s.prints_hour; $("#sHourOf").textContent = s.limits.max_per_hour ? `of ${s.limits.max_per_hour}` : "no limit";
+  bar($("#bToday"), s.prints_today, s.limits.max_per_day); bar($("#bHour"), s.prints_hour, s.limits.max_per_hour);
+  $("#sPhotos").textContent = s.photos_today; $("#sAll").textContent = s.photos_total; $("#sAllOf").textContent = `${s.prints_total} printed` + (s.reprints ? ` (${s.reprints} reprinted)` : "");
+  const feed = s.activity.length ? s.activity.map(a =>
+    `<li class="${esc(a.kind)}"><span class="t">${esc(a.time)}</span><span class="dot"></span><span>${
+      a.photo ? `<a href="/gallery#${encodeURIComponent(a.photo)}">${esc(a.text)}</a>` : esc(a.text)}</span></li>`).join("")
+    : `<li class="empty">Nothing yet</li>`;
+  if (feed !== renderStats.feed) { renderStats.feed = feed; $("#feed").innerHTML = feed; }   // redrawing mid-click would lose the click
+}
+
+// ---- take photo --------------------------------------------------------------------
+const SHOOT = {                          // what the button does in each booth state
+  LIVE: ["&#128247; Take photo", "primary", false], SLIDESHOW: ["&#128247; Take photo", "primary", false],
+  COUNTDOWN: ["&#10005; Cancel photo", "cancel", false], PROCESSING: ["Saving&hellip;", "", true],
+  REVIEW: ["Back to the camera", "", false], PLATE: ["Capturing clean plate&hellip;", "", true],
+};
+function renderShoot(st) {
+  const [label, cls, disabled] = SHOOT[st.state] || SHOOT.LIVE, b = $("#shoot");
+  b.innerHTML = label; b.className = cls; b.disabled = disabled;
+  $("#shootNote").textContent = st.state === "COUNTDOWN" ? "Counting down on the booth screen... press again to cancel."
+    : st.state === "REVIEW" ? "Showing the photo on the booth screen."
+    : "Same as the remote's big button: counts down, then takes the photo.";
+}
+$("#shoot").onclick = async () => {
+  try { await post("/api/take_photo"); setTimeout(pollState, 250); } catch (e) { toast(e.message, true); }
+};
+
+// ---- background picker ---------------------------------------------------------------
+function renderBgs(list) {
+  const key = JSON.stringify(list); if (key === renderBgs.last) return;     // unchanged: don't reload the pictures
+  renderBgs.last = key;
+  $("#bgpick").innerHTML = list.length ? list.map(b =>
+    `<button class="bg${b.current ? " current" : ""}" data-file="${esc(b.file)}" title="${esc(b.name)}">` +
+    `<img loading="lazy" src="/bg/${encodeURIComponent(b.file)}" alt=""><span>${esc(b.name)}</span></button>`).join("")
+    : `<p class="empty">No backgrounds yet &mdash; add some in Settings &rarr; Backgrounds.</p>`;
+}
+async function loadBgs() { try { renderBgs(await get("/api/backgrounds")); bgAt = Date.now(); } catch (_) {} }
+$("#bgpick").onclick = async e => {
+  const b = e.target.closest(".bg"); if (!b || b.classList.contains("current")) return;
+  try { const r = await post("/api/backgrounds/select", { file: b.dataset.file }); renderBgs(r.backgrounds); bgAt = Date.now(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---- live updates ------------------------------------------------------------------
+async function pollState() {
+  try {
+    const st = (await get("/api/state?full=0")).status;
+    renderChips(st); renderShoot(st);
+    if (st.background !== bgName || Date.now() - bgAt > 15000) { bgName = st.background; loadBgs(); }   // picks up uploads too
+  } catch (_) { /* booth restarting; try again */ }
+}
+async function tick() {
+  await pollState();
+  if (!(tick.n++ % 3)) { try { renderStats(await get("/api/stats")); } catch (_) {} }
+  setTimeout(tick, 1000);
+}
+tick.n = 0;
+function startPreview() { $("#preview").src = `/preview.mjpg?view=comp&t=${Date.now()}`; }
+$("#preview").onerror = () => setTimeout(startPreview, 1500);
+setInterval(renderPrinter, 1000);                       // countdown between polls
+startPreview(); tick();
+</script>
+</body>
+</html>
