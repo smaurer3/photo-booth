@@ -254,6 +254,7 @@
       <p class="note">A clean slideshow of every photo for a TV or second monitor. A new photo jumps straight on and stays up
         (the newest one wins) until nobody has taken a photo for that long; then the slideshow carries on, with the new photos
         added to the end. Its pace is the slideshow seconds per photo above. <span id="secondState"></span></p>
+      <p class="note" id="tvUrl"></p>
       <h3>Printing</h3>
       <label class="check"><input type="checkbox" data-sec="print" data-key="enabled"> Print every photo</label>
       <div class="grid2">
@@ -687,6 +688,9 @@ async function load() {
   if (want >= 0 && !st.monitors.some(m => m.index === want)) sec.append(new Option(`${want + 1}: not connected`, want));
   ptzPorts(st.serial_ports);
   renderAll(); renderStatus(st.status); renderBgs(st.backgrounds);
+  $("#tvUrl").textContent = st.panel.lan
+    ? `On a smart TV (no cable or screen mirroring): open ${st.panel.lan}/show in the TV's web browser, enter the PIN once and press OK for full screen. It plays the same slideshow, drawn by the TV itself.`
+    : "To show it on a smart TV's own web browser instead (no cable or screen mirroring), set a PIN under Phone & tablet access.";
   $("#phoneUrl").textContent = st.panel.lan ? `On a phone or tablet on this network: ${st.panel.lan}` : "Set a PIN to open this page from a phone or tablet on the same network (press Save to keep it; Windows may ask to allow Python through the firewall).";
 }
 async function poll() {

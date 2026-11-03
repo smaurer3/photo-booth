@@ -1,5 +1,5 @@
 """Second screen: what it shows when (the drawing itself is checked by eye)."""
-from photobooth.show import Playlist, scan
+from photobooth.show import BrowserShow, Playlist, scan
 
 from test_gallery import make_photo
 
@@ -79,3 +79,29 @@ def test_scan_is_oldest_first_and_falls_back_to_backgrounds(tmp_path):
     make_photo(photos / "2026-11-02/IMG_20261102_100000.jpg")
     make_photo(photos / "2026-11-01/IMG_20261101_100000.jpg")
     assert scan(photos, bgs) == ["2026-11-01/IMG_20261101_100000.jpg", "2026-11-02/IMG_20261102_100000.jpg"]
+
+
+def test_tv_slideshow_matches_the_second_screen(tmp_path):
+    photos = tmp_path / "photos"
+    a, b, c, d = (f"2026-11-03/IMG_20261103_10000{i}.jpg" for i in range(4))
+    for pid in (a, b, c):
+        make_photo(photos / pid)
+    tv = BrowserShow()
+    assert tv.current(photos, None, 5, now=0) == (a, b)
+    assert tv.current(photos, None, 5, now=5) == (a, b)      # 5 s plus the fade
+    assert tv.current(photos, None, 5, now=6) == (b, c)
+    make_photo(photos / d)
+    tv.taken(d, hold=60, now=7)                               # the booth just took it
+    assert tv.current(photos, None, 5, now=7.5)[0] == d
+    assert tv.current(photos, None, 5, now=60)[0] == d
+    assert tv.current(photos, None, 5, now=67.5) == (c, d)    # carries on after the photo it interrupted
+    tv.deleted(c)
+    assert tv.current(photos, None, 5, now=68)[0] == d
+
+
+def test_tv_slideshow_shows_backgrounds_until_the_first_photo(tmp_path):
+    bgs = tmp_path / "bgs"
+    make_photo(bgs / "01_Beach.jpg")
+    tv = BrowserShow()
+    assert tv.current(tmp_path / "photos", bgs, 5, now=0) == ("bg:01_Beach.jpg", "bg:01_Beach.jpg")
+    assert tv.current(tmp_path / "other", None, 5, now=0.5) == (None, None)   # folder changed: looks again at once

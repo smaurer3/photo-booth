@@ -103,6 +103,42 @@ def scan(photos_dir: Path, backgrounds_dir: Path | None):
     return ["bg:" + p.name for p in sorted(backgrounds_dir.iterdir()) if p.suffix.lower() in IMAGE_EXTS]
 
 
+class BrowserShow:
+    """The same slideshow for web browsers (a smart TV's own browser at /show). It lives in the
+    booth, so every TV shows the same photo at the same time; the page asks it about once a
+    second what to show and does the crossfade itself, so nothing is streamed as video."""
+
+    def __init__(self):
+        self.playlist = Playlist()
+        self.shown, self.t_shown = None, 0.0
+        self._dirs, self._next_scan = None, 0.0
+        self._lock = threading.Lock()
+
+    def taken(self, photo_id: str, hold: float, now: float | None = None):
+        with self._lock:
+            self.playlist.hold = float(hold)
+            self.playlist.taken(photo_id, time.time() if now is None else now)
+
+    def deleted(self, photo_id: str):
+        with self._lock:
+            self.playlist.deleted(photo_id)
+
+    def current(self, photos_dir: Path, backgrounds_dir: Path | None, seconds: float, now: float | None = None):
+        """(what to show now, what comes after it); either may be None."""
+        now = time.time() if now is None else now
+        with self._lock:
+            pl = self.playlist
+            if now >= self._next_scan or (photos_dir, backgrounds_dir) != self._dirs:
+                self._dirs, self._next_scan = (photos_dir, backgrounds_dir), now + RESCAN
+                pl.refresh(scan(photos_dir, backgrounds_dir))
+            if not pl.holding and self.shown is not None and now - self.t_shown >= FADE + max(1.0, seconds):
+                pl.next()
+            key = pl.current(now)
+            if key != self.shown:
+                self.shown, self.t_shown = key, now
+            return key, pl.upcoming()
+
+
 class Show:
     def __init__(self, photos_dir: Path, backgrounds_dir: Path | None, monitor: int, seconds: float,
                  hold: float, focus: int = 0):

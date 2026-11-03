@@ -18,22 +18,25 @@ import time
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import cv2
 
 from . import gallery
 from .camera import list_cameras
 from .ptz import serial_ports
+from .show import FADE
 
 log = logging.getLogger(__name__)
 
 WEB = Path(__file__).resolve().parent / "web"
-PAGES = {"/": WEB / "dashboard.html", "/gallery": WEB / "gallery.html", "/settings": WEB / "panel.html"}
+PAGES = {"/": WEB / "dashboard.html", "/gallery": WEB / "gallery.html", "/settings": WEB / "panel.html",
+         "/show": WEB / "show.html"}
 THUMBS = gallery.Thumbnails()
 MAX_UPLOAD = 60 * 1024 * 1024
 PREVIEW_WIDTH = 800
 PREVIEW_FPS = 15
+TV_WIDTH = 1920         # backgrounds are sent to a TV no wider than this
 SECTIONS = ("camera", "display", "booth", "keyer", "fill", "print", "panel", "ptz")
 PTZ_MOVES = ("move", "zoom", "focus", "centre", "go")
 
@@ -139,6 +142,8 @@ class PanelHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         headers = {"Cache-Control": "no-store", **(headers or {})}
+        if self._set_cookie:                        # 30 days from the last visit, so a TV left on stays signed in
+            headers["Set-Cookie"] = f"boothpin={self.pin}; Path=/; Max-Age=2592000; SameSite=Strict"
         for k, v in headers.items():
             self.send_header(k, v)
         self.end_headers()
@@ -160,11 +165,10 @@ class PanelHandler(BaseHTTPRequestHandler):
         """Local browser always; others need the PIN (query once, then a cookie)."""
         if self.client_address[0] in ("127.0.0.1", "::1") or not self.pin:
             return True
-        if query.get("pin", [""])[0] == self.pin:
-            self._set_cookie = True
-            return True
         jar = cookies.SimpleCookie(self.headers.get("Cookie", ""))
-        return "boothpin" in jar and jar["boothpin"].value == self.pin
+        self._set_cookie = (query.get("pin", [""])[0] == self.pin
+                            or ("boothpin" in jar and jar["boothpin"].value == self.pin))
+        return self._set_cookie
 
     # -- routing -----------------------------------------------------------
     def do_GET(self):
@@ -175,8 +179,7 @@ class PanelHandler(BaseHTTPRequestHandler):
             return self._send(200 if url.path in PAGES else 403, PIN_PAGE.encode(), "text/html; charset=utf-8")
         try:
             if url.path in PAGES:
-                headers = {"Set-Cookie": f"boothpin={self.pin}; Path=/; Max-Age=2592000; SameSite=Strict"} if self._set_cookie else None
-                return self._send(200, PAGES[url.path].read_bytes(), "text/html; charset=utf-8", headers)
+                return self._send(200, PAGES[url.path].read_bytes(), "text/html; charset=utf-8")
             if url.path == "/api/photos":
                 return self._json(gallery.list_photos(self.booth.out_dir))
             if url.path.startswith("/photo/"):
@@ -184,6 +187,8 @@ class PanelHandler(BaseHTTPRequestHandler):
                 if q.get("thumb"):
                     return self._send(200, THUMBS.get(path), "image/jpeg", {"Cache-Control": "max-age=86400"})
                 return self._send(200, path.read_bytes(), "image/jpeg")
+            if url.path == "/api/show":
+                return self._json(self._show())
             if url.path == "/api/stats":
                 return self._json(self._stats())
             if url.path == "/api/backgrounds":
@@ -199,8 +204,9 @@ class PanelHandler(BaseHTTPRequestHandler):
             if url.path == "/api/serial_ports":
                 return self._json(serial_ports())
             if url.path.startswith("/bg/"):
+                size = {"width": TV_WIDTH} if q.get("tv") else {}
                 with self.booth.bg_lock:
-                    jpg = self.booth.backgrounds.thumbnail(unquote(url.path[4:]))
+                    jpg = self.booth.backgrounds.thumbnail(unquote(url.path[4:]), **size)
                 return self._send(200, jpg, "image/jpeg")
             if url.path == "/preview.mjpg":
                 return self._stream(q.get("view", ["comp"])[0])
@@ -356,6 +362,18 @@ class PanelHandler(BaseHTTPRequestHandler):
     def _ptz_state(self):
         b = self.booth
         return {**b.ptz.state(), "settings": b.cfg["ptz"], "dirty": b.dirty}
+
+    def _show(self):
+        """What a TV's browser at /show should be showing (the same slideshow as the second screen)."""
+        b = self.booth
+        booth = b.cfg["booth"]
+        now, upcoming = b.tv.current(b.out_dir, b.cfg.resolve(booth["backgrounds_dir"]), float(booth["slideshow_seconds"]))
+
+        def src(key):
+            if key is None:
+                return None
+            return f"/bg/{quote(key[3:])}?tv=1" if key.startswith("bg:") else f"/photo/{quote(key)}"
+        return {"photo": src(now), "next": src(upcoming), "fade": FADE}
 
     def _stats(self):
         b = self.booth

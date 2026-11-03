@@ -31,7 +31,7 @@ from .printer import PrintLimiter, Printer, describe, fmt_wait
 from .ptz import CameraControl
 from .remote import MOTION, NEXT, PHOTO, PREVIOUS, Remote
 from .screens import dpi_aware, monitor_rects, move_window
-from .show import SecondScreen
+from .show import BrowserShow, SecondScreen
 
 log = logging.getLogger("photobooth")
 
@@ -163,6 +163,7 @@ class Booth:
         self.ptz.start()
         self.worker = PreviewWorker(self)
         self.worker.start()
+        self.tv = BrowserShow()            # the slideshow for TV browsers at /show
         self.panel = PanelServer(self)
         self.panel.start()
         self.second = SecondScreen()
@@ -517,6 +518,7 @@ class Booth:
             photo_id = f"{folder.name}/{path.name}"
             self.note("photo", f"Photo taken ({self.backgrounds.name})", photo_id)
             self.second.photo(photo_id)
+            self.tv.taken(photo_id, self.cfg["display"]["second_hold"])
             kind, wait = self.printer.submit(path)
             self.result = (out, (kind, time.time() + wait))
             booth = self.cfg["booth"]
@@ -576,6 +578,7 @@ class Booth:
     def delete_photo(self, photo_id: str):
         gallery.delete_photo(self.out_dir, photo_id)
         self.second.deleted(photo_id)
+        self.tv.deleted(photo_id)
         log.info("Deleted photo %s (moved to the deleted folder)", photo_id)
         self.note("delete", "Photo deleted (moved to the deleted folder)")
 

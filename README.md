@@ -68,6 +68,23 @@ It runs as its own window process, so it can't slow down the booth, and it
 never takes the keyboard from the booth window. If its monitor is unplugged it
 closes, and comes back when it's plugged in again.
 
+### On a smart TV, without a cable
+
+Screen mirroring (Miracast, *Connect to a wireless display*) stutters: Windows
+re-encodes the whole screen as video, and a crossfade, where every pixel changes,
+is the hardest thing for it to encode. Instead, open `http://<booth address>/show`
+in the TV's own web browser (Samsung's *Internet* app, for example). The address is
+under *Booth & print → Second screen* once a panel PIN is set, and the TV must be on
+the same network as the laptop.
+
+The TV plays the same slideshow as the second screen, in step with it (and with
+any other TVs), but draws it itself. Only the photos travel over the network, and
+the TV's browser does the crossfade. Enter the PIN once (it's remembered for 30
+days from the last visit, so a TV left on stays signed in), then press OK on the
+remote for full screen. If the booth is restarted, the TV keeps showing the last
+photo and carries on when the booth is back. Turn off the TV's *Auto Power Off*,
+or it switches itself off after a few hours with no remote presses.
+
 ## Camera control (Cisco PrecisionHD)
 
 A Cisco PrecisionHD 1080p (or another VISCA camera) can be driven from the

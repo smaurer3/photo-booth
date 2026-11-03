@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photo Booth slideshow</title>
+<!-- For a smart TV's own web browser: the booth decides what to show (the same slideshow as the
+     second screen) and this page only loads the photos and crossfades them, so it plays as smoothly
+     as the TV can draw, with nothing streamed as video. Written for old TV browsers (Samsung's
+     2019 browser is Chromium 63): no ?. or ??, no CSS inset, fetch with credentials spelled out. -->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  #stage { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+  #stage img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain;
+               opacity: 0; transition-property: opacity; transition-timing-function: linear; }
+  #stage img.on { opacity: 1; }
+  #hint { position: fixed; left: 50%; bottom: 6%; transform: translateX(-50%); padding: 14px 26px;
+          border-radius: 12px; background: rgba(0, 0, 0, .6); color: #fff; font: 28px system-ui, sans-serif;
+          opacity: 0; transition: opacity .6s; pointer-events: none; }
+  #hint.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="hint"></div>
+<script>
+"use strict";
+var POLL = 1000;            // ask the booth what to show this often
+var RETRY = 3000;           // when the booth can't be reached (the last photo stays up meanwhile)
+var stage = document.getElementById("stage");
+var hint = document.getElementById("hint");
+var fade = 0.8;
+var wanted = null;          // the photo the booth wants shown
+var shown = null;           // the photo on top of the stage
+var cache = {};             // src -> {img, ready (a promise of whether it loaded)}
+var order = [];             // cache keys, oldest first
+
+function load(src) {
+  var c = cache[src];
+  if (c) return c.ready;
+  var img = new Image();
+  c = cache[src] = {img: img, ready: new Promise(function (resolve) {
+    img.onload = function () { resolve(true); };
+    img.onerror = function () { resolve(false); };
+  })};
+  img.src = src;
+  order.push(src);
+  while (order.length > 4) {                            // keep a few, never the ones on screen
+    var old = order[0];
+    if (old === shown || old === wanted || cache[old].img.parentNode) break;
+    forget(old);
+  }
+  return c.ready;
+}
+
+function forget(src) {
+  delete cache[src];
+  var i = order.indexOf(src);
+  if (i >= 0) order.splice(i, 1);
+}
+
+function show(src) {
+  wanted = src;
+  if (!src) {                                           // nothing to show yet: black
+    Array.prototype.slice.call(stage.children).forEach(function (el) { el.classList.remove("on"); });
+    shown = null;
+    return;
+  }
+  load(src).then(function (ok) {
+    if (!ok) { forget(src); return; }                   // try again next time it comes round
+    if (src !== wanted || src === shown) return;        // something newer came along meanwhile
+    var img = cache[src].img;
+    if (img.parentNode) img = img.cloneNode();          // still fading out from a moment ago
+    img.className = "";
+    img.style.transitionDuration = fade + "s";
+    stage.appendChild(img);
+    void img.offsetWidth;                               // start at opacity 0, then fade in over the old one
+    img.className = "on";
+    shown = src;
+    setTimeout(function () {                            // the ones underneath are covered now
+      if (img.parentNode !== stage) return;             // a newer photo already took over
+      while (stage.firstChild !== img) stage.removeChild(stage.firstChild);
+    }, fade * 1000 + 100);
+  });
+}
+
+function poll() {
+  fetch("/api/show", {credentials: "same-origin", cache: "no-store"}).then(function (r) {
+    if (r.status === 403) { location.reload(); return null; }    // the PIN changed: ask for it again
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  }).then(function (s) {
+    if (!s) return;
+    fade = s.fade;
+    if (s.photo !== wanted) show(s.photo);
+    if (s.next) load(s.next);                            // ready before it's needed
+    setTimeout(poll, POLL);
+  }).catch(function () {
+    setTimeout(poll, RETRY);
+  });
+}
+
+// Full screen: TV browsers only allow it after a press, so the OK button (a click) or any key does it.
+var root = document.documentElement;
+var goFull = root.requestFullscreen || root.webkitRequestFullscreen;
+function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function fullscreen() {
+  if (!goFull || isFull()) return;
+  try {
+    var p = goFull.call(root);
+    if (p && p.catch) p.catch(function () {});
+  } catch (e) {}
+}
+document.addEventListener("click", fullscreen);
+document.addEventListener("keydown", fullscreen);
+if (goFull && !isFull()) {
+  hint.textContent = "Press OK for full screen";
+  hint.className = "on";
+  setTimeout(function () { hint.className = ""; }, 6000);
+}
+
+poll();
+</script>
+</body>
+</html>

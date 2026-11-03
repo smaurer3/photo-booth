@@ -146,15 +146,17 @@ class Backgrounds:
     def select(self, file: str):
         self.index = self.files.index(self._path(file))
 
-    def thumbnail(self, file: str) -> bytes:
+    def thumbnail(self, file: str, width: int = THUMB_WIDTH) -> bytes:
+        """A JPEG no wider than `width` (the panel's thumbnails, or 1920 for a TV)."""
         p = self._path(file)
-        key = (p.name, p.stat().st_mtime)
+        key = (p.name, p.stat().st_mtime, width)
         jpg = self._thumbs.get(key)
         if jpg is None:
             img = imread(p)
             h, w = img.shape[:2]
-            img = cv2.resize(img, (THUMB_WIDTH, round(h * THUMB_WIDTH / w)), interpolation=cv2.INTER_AREA)
-            jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80])[1].tobytes()
+            if w > width:
+                img = cv2.resize(img, (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
+            jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 80 if width <= THUMB_WIDTH else 90])[1].tobytes()
             self._thumbs[key] = jpg
         return jpg
 
