@@ -24,6 +24,7 @@ import cv2
 
 from . import gallery
 from .camera import list_cameras
+from .ptz import serial_ports
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ THUMBS = gallery.Thumbnails()
 MAX_UPLOAD = 60 * 1024 * 1024
 PREVIEW_WIDTH = 800
 PREVIEW_FPS = 15
-SECTIONS = ("camera", "display", "booth", "keyer", "fill", "print", "panel")
+SECTIONS = ("camera", "display", "booth", "keyer", "fill", "print", "panel", "ptz")
+PTZ_MOVES = ("move", "zoom", "focus", "centre", "go")
 
 PIN_PAGE = """<!doctype html><meta name=viewport content="width=device-width,initial-scale=1">
 <title>Photo Booth</title><body style="font:18px system-ui;background:#111;color:#eee;display:grid;place-items:center;height:90vh">
@@ -192,6 +194,10 @@ class PanelHandler(BaseHTTPRequestHandler):
             if url.path == "/api/cameras":
                 backend = q.get("backend", [self.booth.cfg["camera"]["backend"]])[0]
                 return self._json([{"index": i, "name": n} for i, n in list_cameras(backend)])
+            if url.path == "/api/ptz":
+                return self._json(self._ptz_state())
+            if url.path == "/api/serial_ports":
+                return self._json(serial_ports())
             if url.path.startswith("/bg/"):
                 with self.booth.bg_lock:
                     jpg = self.booth.backgrounds.thumbnail(unquote(url.path[4:]))
@@ -242,6 +248,8 @@ class PanelHandler(BaseHTTPRequestHandler):
             if url.path == "/api/take_photo":
                 b.request_photo()
                 return self._json({"ok": True})
+            if url.path == "/api/ptz":
+                return self._json(self._ptz(data))
             if url.path == "/api/photos/print":
                 b.reprint(str(data["id"]))
                 return self._json({"ok": True, "printer": b.cfg["print"]["printer"] or "the Windows default printer",
@@ -295,11 +303,59 @@ class PanelHandler(BaseHTTPRequestHandler):
                 state["backgrounds"] = self._backgrounds()
             state["settings"] = {s: b.cfg[s] for s in SECTIONS}
             state["printers"] = printers()
+            state["serial_ports"] = serial_ports()
             from .screens import monitor_rects
             state["monitors"] = [{"index": i, "name": f"{i + 1}: {m[2]} x {m[3]}" + (" (main screen)" if m[4] else "")}
                                  for i, m in enumerate(monitor_rects())]
             state["panel"] = {"local": b.panel.local_url, "lan": b.panel.lan_url}
         return state
+
+    def _ptz(self, data):
+        """Camera control. Positions are written to settings.json straight away; the
+        exposure, white balance and focus choices wait for Save like everything else."""
+        b, ptz, act = self.booth, self.booth.ptz, data.get("action")
+        name = str(data.get("name", ""))
+        if act in PTZ_MOVES and not ptz.connected:
+            raise ValueError(f"Camera control {ptz.describe()}")
+        try:
+            if act == "move":
+                ptz.move(int(data["pan"]), int(data["tilt"]))
+            elif act == "zoom":
+                ptz.zoom(int(data["dir"]))
+            elif act == "focus":
+                ptz.focus(int(data["dir"]))
+            elif act == "centre":
+                ptz.centre()
+            elif act == "go":
+                preset = ptz.preset(name)
+                if not preset:
+                    raise KeyError(name)
+                ptz.go(preset)
+            elif act == "lock_exposure":            # measure again and lock
+                if b.cfg["ptz"]["exposure"] == "locked":
+                    ptz.relock()
+                else:
+                    b.apply("ptz", {"exposure": "locked"})
+            elif act == "focus_once":
+                b.apply("ptz", {"focus": "manual"})
+                ptz.focus_once()
+            elif act == "wb_from_auto":
+                b.apply("ptz", {"white_balance": "manual", "wb_table": ptz.auto_white_balance_preset()})
+            elif act == "save":
+                b.save_position(name)
+            elif act == "delete":
+                b.delete_position(name)
+            elif act == "start":
+                b.start_position(name)
+            else:
+                raise KeyError(act)
+        except RuntimeError as e:                   # the camera isn't there or didn't answer
+            raise ValueError(str(e)) from e
+        return self._ptz_state()
+
+    def _ptz_state(self):
+        b = self.booth
+        return {**b.ptz.state(), "settings": b.cfg["ptz"], "dirty": b.dirty}
 
     def _stats(self):
         b = self.booth

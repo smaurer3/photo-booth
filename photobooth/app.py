@@ -28,6 +28,7 @@ from .config import Config
 from .keyer import FillGrade, Keyer, KeyerSettings, average_frames, estimate_screen_color, sample_color, to_u8
 from .panel import PanelServer
 from .printer import PrintLimiter, Printer, describe, fmt_wait
+from .ptz import CameraControl
 from .remote import MOTION, NEXT, PHOTO, PREVIOUS, Remote
 from .screens import dpi_aware, monitor_rects, move_window
 from .show import SecondScreen
@@ -158,6 +159,8 @@ class Booth:
         if cfg["remote"]["enabled"]:
             self.remote = Remote(cfg["remote"], self.events)
             self.remote.start()
+        self.ptz = CameraControl(cfg["ptz"])
+        self.ptz.start()
         self.worker = PreviewWorker(self)
         self.worker.start()
         self.panel = PanelServer(self)
@@ -616,6 +619,8 @@ class Booth:
                 self._update_second()
         elif section == "camera":
             self.switch_camera()
+        elif section == "ptz":
+            self.ptz.changed(changed.keys())
         elif section == "panel":
             threading.Timer(0.5, self.panel.restart).start()   # after this request's reply
         elif section == "display":
@@ -631,9 +636,43 @@ class Booth:
 
     def revert(self):
         fresh = Config(self.cfg.path)
-        for section in ("keyer", "fill", "print", "booth", "camera", "display", "panel"):
+        for section in ("keyer", "fill", "print", "booth", "camera", "display", "panel", "ptz"):
             self.apply(section, fresh[section])
         self.dirty = False
+
+    # -- camera control (VISCA) ----------------------------------------------------
+    def save_position(self, name: str):
+        """Read where the camera is pointing and keep it under this name (saved straight away)."""
+        name = name.strip()
+        if not name:
+            raise ValueError("give the position a name")
+        pos = {"name": name, **self.ptz.read_position()}
+        presets = list(self.cfg["ptz"]["presets"])
+        i = next((i for i, p in enumerate(presets) if p["name"] == name), None)
+        if i is None:
+            presets.append(pos)
+        else:
+            presets[i] = pos
+        self.cfg["ptz"]["presets"] = presets
+        self._save_positions()
+        log.info("Camera position %s saved: %s", name, pos)
+
+    def delete_position(self, name: str):
+        c = self.cfg["ptz"]
+        c["presets"] = [p for p in c["presets"] if p["name"] != name]
+        if c["start_preset"] == name:
+            c["start_preset"] = ""
+        self._save_positions()
+
+    def start_position(self, name: str):
+        """Go here when the booth starts and after a power cut ("" = stay where it is)."""
+        if name and not self.ptz.preset(name):
+            raise KeyError(name)
+        self.cfg["ptz"]["start_preset"] = name
+        self._save_positions()
+
+    def _save_positions(self):
+        self.cfg.save(["ptz"], keys=("presets", "start_preset"))
 
     def switch_camera(self):
         old = self.camera
@@ -684,6 +723,7 @@ class Booth:
             "fullscreen": self.fullscreen,
             "output_dir": str(self.out_dir),
             "second_screen": self.second.describe(),
+            "ptz": self.ptz.describe(),
         }
 
     # -- input ---------------------------------------------------------------
@@ -907,6 +947,7 @@ class Booth:
         self.second.stop()
         self.panel.stop()
         self.worker.stop()
+        self.ptz.stop()
         self.camera.stop()
         if self.remote:
             self.remote.stop()

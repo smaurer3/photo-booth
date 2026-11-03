@@ -8,7 +8,7 @@ import pytest
 from photobooth.printer import Printer, PrintLimiter, describe, print_image
 
 CFG = {"min_seconds_between": 60, "max_per_hour": 3, "max_per_day": 5}
-T0 = dt.datetime(2026, 11, 1, 10, 0, 0)
+T0 = dt.datetime.combine(dt.date.today(), dt.time(10))     # today: the log forgets prints over 2 days old
 
 
 def at(minutes, seconds=0):

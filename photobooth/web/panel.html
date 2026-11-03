@@ -29,7 +29,7 @@
   button.danger { color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
   main { display: grid; grid-template-columns: minmax(320px, 1.15fr) minmax(320px, 1fr); gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 10px; } }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); padding: 10px; } }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
   .previewcol { align-self: start; position: sticky; top: 64px; }
   @media (max-width: 860px) { .previewcol { position: static; } }
@@ -56,7 +56,8 @@
   input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
   select, input[type=number], input[type=text] { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
            border-radius: 8px; padding: 7px 9px; min-width: 0; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+  select { max-width: 100%; }      /* a select is as wide as its longest option (serial port names) */
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
   .grid2 label, .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--dim); }
   .grid2 label > *, .field > * { color: var(--text); }
   .note { font-size: 12.5px; color: var(--dim); margin: 6px 0; }
@@ -71,6 +72,18 @@
   .bg .tools { display: flex; gap: 4px; padding: 4px 6px 7px; }
   .bg .tools button { padding: 3px 7px; font-size: 13px; }
   .bg .tools .use { flex: 1; }
+  .ptzrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .ptzrow .lbl { min-width: 7.5em; color: var(--dim); font-size: 13px; }
+  .ptzpad { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+  .pad { display: grid; grid-template-columns: repeat(3, 54px); gap: 6px; }
+  .pad button { height: 54px; font-size: 20px; padding: 0; }
+  .zoom { display: flex; flex-direction: column; gap: 8px; }
+  button.hold { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  button.held { background: var(--accent); border-color: var(--accent); color: #04121f; }
+  .preset { display: flex; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid #ffffff08; }
+  .preset .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preset .star { color: var(--warn); }
+  #ptzBody.off { opacity: .4; pointer-events: none; }
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #000d; color: #fff; padding: 9px 16px;
            border-radius: 8px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 20; max-width: 90vw; }
   #toast.show { opacity: 1; } #toast.err { background: #7a1f1f; }
@@ -146,8 +159,58 @@
       <div class="row"><button class="primary" id="camApply">Use this camera</button>
         <button id="camDialog" title="Opens on the booth laptop">Driver settings&hellip;</button>
         <button id="camRefresh">Refresh list</button></div>
-      <p class="note">Lock exposure, white balance and focus on the camera itself. "Driver settings" opens the camera's own dialog on the booth laptop (DirectShow only).</p>
+      <p class="note">Lock exposure, white balance and focus on the camera itself (or below, for a Cisco PrecisionHD). "Driver settings" opens the camera's own dialog on the booth laptop (DirectShow only).</p>
       <p class="note" id="camStatus"></p>
+
+      <h3>Camera control (Cisco PrecisionHD, VISCA)</h3>
+      <div class="grid2">
+        <label>Control port (USB serial adapter)<select id="ptzPort" data-sec="ptz" data-key="port"></select></label>
+        <div class="field"><span>&nbsp;</span><span id="ptzStatus" class="chip"></span></div>
+      </div>
+      <div id="ptzBody">
+        <div class="ptzrow"><span class="lbl">Exposure</span>
+          <div class="seg" id="ptzExposure"><button data-v="auto">Auto</button><button data-v="locked">Locked</button></div>
+          <button id="ptzRelock">Measure again</button></div>
+        <p class="note">Locked keeps the brightness auto exposure picked, so a guest in black or white can't change the key.
+          Lock it with someone standing where the guests stand; it's measured again when the booth starts.</p>
+        <div class="ptzrow"><span class="lbl">White balance</span>
+          <div class="seg" id="ptzWb"><button data-v="auto">Auto</button><button data-v="manual">Manual</button></div>
+          <button id="ptzWbAuto">Use what auto picks</button></div>
+        <div class="ctl"><div class="top"><span>Warmer &harr; cooler</span><span class="val" id="ptzWbVal"></span></div>
+          <input type="range" min="0" max="15" step="1" id="ptzWbTable"></div>
+        <div class="ptzrow"><span class="lbl">Focus</span>
+          <div class="seg" id="ptzFocus"><button data-v="auto">Auto</button><button data-v="manual">Manual</button></div>
+          <button id="ptzFocusOnce">Focus once &amp; lock</button>
+          <button class="hold" data-ptz="focus" data-dir="-1">Nearer</button>
+          <button class="hold" data-ptz="focus" data-dir="1">Further</button></div>
+
+        <h3>Position</h3>
+        <div class="ptzpad">
+          <div class="pad">
+            <button class="hold" data-ptz="move" data-pan="-1" data-tilt="1">&#8598;</button>
+            <button class="hold" data-ptz="move" data-pan="0" data-tilt="1">&#8593;</button>
+            <button class="hold" data-ptz="move" data-pan="1" data-tilt="1">&#8599;</button>
+            <button class="hold" data-ptz="move" data-pan="-1" data-tilt="0">&#8592;</button>
+            <button id="ptzCentre" title="Point straight ahead">&#9679;</button>
+            <button class="hold" data-ptz="move" data-pan="1" data-tilt="0">&#8594;</button>
+            <button class="hold" data-ptz="move" data-pan="-1" data-tilt="-1">&#8601;</button>
+            <button class="hold" data-ptz="move" data-pan="0" data-tilt="-1">&#8595;</button>
+            <button class="hold" data-ptz="move" data-pan="1" data-tilt="-1">&#8600;</button>
+          </div>
+          <div class="zoom">
+            <button class="hold" data-ptz="zoom" data-dir="1">Zoom in +</button>
+            <button class="hold" data-ptz="zoom" data-dir="-1">Zoom out &minus;</button>
+            <span class="note" id="ptzPos"></span>
+          </div>
+        </div>
+        <p class="note">Hold a button to move; let go to stop.</p>
+
+        <h3>Saved positions</h3>
+        <div id="ptzPresets"></div>
+        <div class="row"><input type="text" id="ptzName" placeholder="Name, e.g. Booth" maxlength="40" style="flex:1">
+          <button class="primary" id="ptzSave">Save current position</button></div>
+        <p class="note">Saved straight away, with zoom and focus. &#9733; is the start position: the camera goes there when the booth starts and after a power cut.</p>
+      </div>
     </div>
 
     <div class="tab" id="tab-bgs">
@@ -332,6 +395,7 @@ function renderAll() {
     }
   }
   renderCamera();
+  renderPtz.key = null; renderPtz();
 }
 function renderSwatch() { const [r, g, b] = S.keyer.screen_color; $("#swatch").style.background = `rgb(${r},${g},${b})`; $("#swatch").title = `RGB ${r}, ${g}, ${b}`; }
 
@@ -347,6 +411,7 @@ function renderStatus(st) {
     hourly: [`Printer resting ${mmss}`, "warn"], daily: ["No more prints today", "warn"], error: ["Printer problem", "bad"] };
   if (PRINT[pr.kind]) chips.push(PRINT[pr.kind]);
   chips.push([st.background, ""]);
+  if (st.ptz && st.ptz !== "off") chips.push(st.ptz.startsWith("connected") ? ["Camera control", "good"] : ["Camera control offline", "bad"]);
   $("#chips").innerHTML = chips.map(([t, c]) => `<span class="chip ${c}">${t}</span>`).join("");
   $("#plateState").textContent = st.plate ? "Clean plate is on" : "No clean plate";
   $("#camStatus").textContent = st.camera;
@@ -391,6 +456,122 @@ $("#camApply").onclick = async () => {
   Object.assign(S.camera, cam);
   try { const r = await api("/api/settings", { camera: cam }); setDirty(r.dirty); toast("Switching camera…"); } catch (e) { toast(e.message, true); }
 };
+
+// ---- camera control (VISCA) ------------------------------------------------------
+let PTZ = { status: "off", connected: false, position: null, busy: [] };     // the booth's last answer
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+function ptzPorts(ports) {
+  const sel = $("#ptzPort"); sel.innerHTML = ""; sel.append(new Option("Off", ""));
+  for (const p of ports) sel.append(new Option(`${p.device}: ${p.description}`, p.device));
+  const want = S.ptz.port;
+  if (want && !ports.some(p => p.device === want)) sel.append(new Option(`${want}: not plugged in`, want));
+  sel.value = want;
+}
+function seg(sel, v) { $$(`${sel} button`).forEach(b => b.classList.toggle("on", b.dataset.v === v)); }
+function renderPtz(p) {
+  if (p) {
+    PTZ = p;
+    S.ptz = Object.assign({}, p.settings, pending.ptz || {});     // keep a slider drag that hasn't been sent yet
+    if ("dirty" in p) setDirty(p.dirty);
+  }
+  const c = S.ptz;
+  const busy = PTZ.busy.includes("setup") ? " - setting it up" : PTZ.busy.includes("exposure") ? " - measuring exposure" :
+    PTZ.busy.includes("focus") ? " - focusing" : "";
+  $("#ptzStatus").textContent = (c.port ? PTZ.status : "off") + busy;
+  $("#ptzStatus").className = "chip " + (!c.port ? "" : PTZ.connected ? "good" : "bad");
+  $("#ptzBody").classList.toggle("off", !c.port);
+  seg("#ptzExposure", c.exposure); seg("#ptzWb", c.white_balance); seg("#ptzFocus", c.focus);
+  $("#ptzRelock").hidden = c.exposure !== "locked";
+  const wb = $("#ptzWbTable");
+  if (document.activeElement !== wb) wb.value = c.wb_table;
+  wb.disabled = c.white_balance !== "manual";
+  $("#ptzWbVal").textContent = c.white_balance === "manual" ? `preset ${wb.value}` : "auto";
+  $$('[data-ptz="focus"]').forEach(b => b.disabled = c.focus !== "manual");
+  const pos = PTZ.position;
+  $("#ptzPos").textContent = pos ? `pan ${pos.pan} · tilt ${pos.tilt} · zoom ${pos.zoom} · focus ${pos.focus}` : "";
+  const key = JSON.stringify([c.presets, c.start_preset]);
+  if (key === renderPtz.key) return;              // redrawing mid-click would lose the click
+  renderPtz.key = key;
+  $("#ptzPresets").innerHTML = c.presets.length ? c.presets.map(p => {
+    const start = p.name === c.start_preset;
+    return `<div class="preset" data-name="${esc(p.name)}"><span class="pname">${start ? '<span class="star">&#9733;</span> ' : ""}${esc(p.name)}</span>
+      <button data-act="go">Go</button><button data-act="update" title="Save where the camera is now under this name">Update</button>
+      <button data-act="start" title="${start ? "Don't move the camera at startup" : "Go here when the booth starts"}">${start ? "&#9733;" : "&#9734;"}</button>
+      <button class="danger" data-act="delete" title="Delete">&#10005;</button></div>`;
+  }).join("") : `<p class="note">No saved positions yet.</p>`;
+}
+async function ptzAction(msg, note) {
+  if (note) toast(note);
+  try { renderPtz(await api("/api/ptz", msg)); return true; } catch (e) { toast(e.message, true); return false; }
+}
+function ptzSet(key, v) { set("ptz", key, v); renderPtz(); }
+
+$("#ptzPort").addEventListener("change", () => setTimeout(renderPtz, 0));
+$("#ptzExposure").onclick = e => {
+  const v = e.target.closest("button")?.dataset.v; if (!v || v === S.ptz.exposure) return;
+  if (v === "locked") { S.ptz.exposure = "locked"; renderPtz(); ptzAction({ action: "lock_exposure" }, "Measuring the exposure, then locking it…"); }
+  else ptzSet("exposure", "auto");
+};
+$("#ptzRelock").onclick = () => ptzAction({ action: "lock_exposure" }, "Measuring the exposure again, then locking it…");
+$("#ptzWb").onclick = e => { const v = e.target.closest("button")?.dataset.v; if (v && v !== S.ptz.white_balance) ptzSet("white_balance", v); };
+$("#ptzWbTable").oninput = e => { $("#ptzWbVal").textContent = `preset ${e.target.value}`; set("ptz", "wb_table", +e.target.value); };
+$("#ptzWbAuto").onclick = () => ptzAction({ action: "wb_from_auto" }, "Letting auto white balance look for a moment…")
+  .then(ok => ok && toast(`White balance set to preset ${S.ptz.wb_table}`));
+$("#ptzFocus").onclick = e => { const v = e.target.closest("button")?.dataset.v; if (v && v !== S.ptz.focus) ptzSet("focus", v); };
+$("#ptzFocusOnce").onclick = () => ptzAction({ action: "focus_once" }, "Focusing, then locking the focus…");
+$("#ptzCentre").onclick = () => ptzAction({ action: "centre" });
+$("#ptzSave").onclick = async () => {
+  const name = $("#ptzName").value.trim(); if (!name) { $("#ptzName").focus(); return toast("Give the position a name", true); }
+  if (S.ptz.presets.some(p => p.name === name) && !confirm(`Replace the saved position "${name}" with where the camera is now?`)) return;
+  if (await ptzAction({ action: "save", name })) { $("#ptzName").value = ""; toast(`Saved "${name}"`); }
+};
+$("#ptzName").onkeydown = e => { if (e.key === "Enter") $("#ptzSave").click(); };
+$("#ptzPresets").onclick = e => {
+  const act = e.target.closest("button")?.dataset.act, name = e.target.closest(".preset")?.dataset.name;
+  if (!act || name == null) return;
+  if (act === "go") ptzAction({ action: "go", name });
+  else if (act === "update") { if (confirm(`Save where the camera is now as "${name}"?`)) ptzAction({ action: "save", name }).then(ok => ok && toast(`Updated "${name}"`)); }
+  else if (act === "start") ptzAction({ action: "start", name: name === S.ptz.start_preset ? "" : name });
+  else if (act === "delete") { if (confirm(`Delete the saved position "${name}"?`)) ptzAction({ action: "delete", name }); }
+};
+
+// Hold-to-move: the move is sent again every 400 ms while held (the booth stops it if that stops),
+// and the stop waits for any send still on its way so it can't arrive first.
+let holding = null;
+function holdStart(b) {
+  holdStop();
+  const msg = b.dataset.ptz === "move" ? { action: "move", pan: +b.dataset.pan, tilt: +b.dataset.tilt } : { action: b.dataset.ptz, dir: +b.dataset.dir };
+  const h = holding = { b, msg, busy: null };
+  const send = () => {
+    if (h.busy) return;
+    h.busy = api("/api/ptz", msg).catch(e => { toast(e.message, true); holdStop(); }).finally(() => { h.busy = null; });
+  };
+  send(); h.timer = setInterval(send, 400); b.classList.add("held");
+}
+function holdStop() {
+  const h = holding; if (!h) return;
+  holding = null; clearInterval(h.timer); h.b.classList.remove("held");
+  const stop = h.msg.action === "move" ? { action: "move", pan: 0, tilt: 0 } : { action: h.msg.action, dir: 0 };
+  Promise.resolve(h.busy).then(() => api("/api/ptz", stop)).then(renderPtz).catch(() => {});
+}
+for (const b of $$("button.hold")) {
+  b.addEventListener("pointerdown", e => {
+    if (b.disabled) return;
+    e.preventDefault();
+    try { b.setPointerCapture(e.pointerId); } catch (_) {}      // keeps the release coming here if the finger slides off
+    holdStart(b);
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(ev, holdStop);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+}
+window.addEventListener("blur", holdStop);
+async function ptzPoll() {
+  if (S && S.ptz.port && $("#tab-camera").classList.contains("on") && !document.hidden && !holding) {
+    try { renderPtz(await api("/api/ptz", null, "GET")); } catch (_) {}
+  }
+  setTimeout(ptzPoll, 1500);
+}
+
 $("#openFolder").onclick = () => api("/api/open_folder").then(() => toast("Opened on the booth laptop")).catch(e => toast(e.message, true));
 $("#camDialog").onclick = () => api("/api/camera/dialog").then(() => toast("Opened on the booth laptop")).catch(e => toast(e.message, true));
 
@@ -504,6 +685,7 @@ async function load() {
   for (const m of st.monitors) sec.append(new Option(m.name, m.index));
   const want = st.settings.display.second_screen;      // keep a screen that isn't plugged in right now
   if (want >= 0 && !st.monitors.some(m => m.index === want)) sec.append(new Option(`${want + 1}: not connected`, want));
+  ptzPorts(st.serial_ports);
   renderAll(); renderStatus(st.status); renderBgs(st.backgrounds);
   $("#phoneUrl").textContent = st.panel.lan ? `On a phone or tablet on this network: ${st.panel.lan}` : "Set a PIN to open this page from a phone or tablet on the same network (press Save to keep it; Windows may ask to allow Python through the firewall).";
 }
@@ -515,7 +697,7 @@ async function poll() {
   setTimeout(poll, 2000);
 }
 try { const t = localStorage.getItem("tab"); if (t) $(`#tabs [data-tab="${t}"]`)?.click(); } catch (_) {}
-load().then(() => { startPreview(); poll(); }).catch(e => toast("Can't reach the booth: " + e.message, true));
+load().then(() => { startPreview(); poll(); ptzPoll(); }).catch(e => toast("Can't reach the booth: " + e.message, true));
 </script>
 </body>
 </html>

@@ -8,3 +8,4 @@ bleak==0.22.3; python_full_version < "3.9.1"
 pywin32
 Pillow
 cv2_enumerate_cameras
+pyserial

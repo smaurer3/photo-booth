@@ -62,9 +62,18 @@ DEFAULTS = {
         "port": 8765,           # settings page: http://localhost:8765
         "pin": "",              # set a PIN to allow phones/tablets on the network (they must enter it)
     },
+    "ptz": {                    # VISCA camera control (Cisco PrecisionHD), see ptz.py
+        "port": "",             # serial port, e.g. "COM6"; "" = off
+        "exposure": "auto",     # auto | locked (keeps what auto exposure chose, measured again at startup)
+        "white_balance": "auto",  # auto | manual
+        "wb_table": 10,         # manual white balance preset: 0 (warm) .. 15 (cool)
+        "focus": "auto",        # auto | manual
+        "presets": [],          # saved positions: {"name", "pan", "tilt", "zoom", "focus"}
+        "start_preset": "",     # go here when the booth starts and after the camera loses power
+    },
 }
 
-SECTIONS = ("camera", "display", "booth", "keyer", "fill", "print", "remote", "panel")
+SECTIONS = ("camera", "display", "booth", "keyer", "fill", "print", "remote", "panel", "ptz")
 
 
 def _merge(base: dict, override: dict, path: str = ""):
@@ -104,14 +113,15 @@ class Config:
         self.data[section].update(values)
         self.save([section])
 
-    def save(self, sections=SECTIONS):
-        """Write the current values of these sections to settings.json."""
+    def save(self, sections=SECTIONS, keys=None):
+        """Write the current values of these sections (or just these keys of them) to settings.json."""
         raw = {}
         if self.path.exists():
             with open(self.path, encoding="utf-8") as f:
                 raw = json.load(f)
         for section in sections:
-            raw.setdefault(section, {}).update(copy.deepcopy(self.data[section]))
+            values = self.data[section] if keys is None else {k: self.data[section][k] for k in keys}
+            raw.setdefault(section, {}).update(copy.deepcopy(values))
         tmp = self.path.with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(raw, f, indent=2)

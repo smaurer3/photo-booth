@@ -18,7 +18,8 @@ Plus (or Plus2) as a two-button Bluetooth remote.
 4. **Camera** tab: pick the capture card by name, its native resolution and frame
    rate, and press *Use this camera*. Pick by name, not number: OBS, vMix,
    DroidCam etc. install virtual cameras that show a placeholder picture. Lock
-   exposure, white balance and focus on the camera itself.
+   exposure, white balance and focus on the camera itself, or from the panel for
+   a Cisco PrecisionHD (see *Camera control* below).
 5. **Key** tab: tap the green screen in the preview to set its colour, then use
    the Matte view to set the clip levels (below).
 6. **Backgrounds** tab: drop pictures in (or *Add pictures*, which on a phone
@@ -66,6 +67,41 @@ where it left off. Before the first photo it shows the backgrounds.
 It runs as its own window process, so it can't slow down the booth, and it
 never takes the keyboard from the booth window. If its monitor is unplugged it
 closes, and comes back when it's plugged in again.
+
+## Camera control (Cisco PrecisionHD)
+
+A Cisco PrecisionHD 1080p (or another VISCA camera) can be driven from the
+**Camera** tab through a USB-to-RS232 adapter in the camera's control port: pick
+the adapter's COM port under *Camera control*. From there:
+
+- **Exposure**: *Auto*, or *Locked*, which keeps the brightness auto exposure
+  picked so a guest in black or white can't change the key. Lock it with someone
+  standing where the guests stand; *Measure again* re-locks.
+- **White balance**: *Auto*, or *Manual* with presets 0 (warm) to 15 (cool);
+  *Use what auto picks* sets the preset auto would use.
+- **Focus**: *Auto*, or *Manual* with Nearer / Further; *Focus once & lock*
+  autofocuses on what's in shot and keeps it.
+- **Position**: hold the arrows to pan and tilt, hold Zoom in / out; ● points it
+  straight ahead.
+- **Saved positions**: *Save current position* reads pan, tilt, zoom and focus
+  back from the camera (it has no preset memory of its own) and writes them to
+  `settings.json` straight away; *Go* returns there. The ★ position is where the
+  camera goes when the booth starts.
+
+The camera forgets exposure, white balance and focus when it loses power, so the
+booth sets it up again whenever it starts and whenever the camera comes back
+after a power cut (once its picture is back, about 20 s): it sends the
+settings, goes to the ★ position, then measures and locks the exposure.
+
+Two things learned on a PrecisionHD with 2012 software, built into the code:
+
+- There's no exposure *level*: the camera's iris and gain commands turn the
+  picture black until it's switched off and on (even back in auto), so the booth
+  only ever locks what auto exposure chose.
+- Some CH340 USB-serial adapters only accept their port settings once per
+  plug-in and then refuse to open ("A device attached to the system is not
+  functioning"). The booth opens them without changing their settings, so they
+  work across restarts without re-plugging.
 
 ## Settings panel
 
