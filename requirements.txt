@@ -9,3 +9,4 @@ pywin32
 Pillow
 cv2_enumerate_cameras
 pyserial
+moderngl

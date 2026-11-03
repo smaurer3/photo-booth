@@ -245,7 +245,8 @@
         <label>Live preview quality<select data-sec="display" data-key="preview_height" data-num>
           <option value="540">Fast (540p)</option><option value="720">Normal (720p)</option><option value="1080">Sharp (1080p)</option></select></label>
       </div>
-      <p class="note">F11 on the booth keyboard also switches fullscreen on and off.</p>
+      <label class="check"><input type="checkbox" data-sec="display" data-key="gpu"> Key on the graphics chip (far less CPU; same picture)</label>
+      <p class="note">F11 on the booth keyboard also switches fullscreen on and off. <span id="keyingState"></span></p>
       <h3>Second screen</h3>
       <div class="grid2">
         <label>Photo slideshow on<select id="secondScreen" data-sec="display" data-key="second_screen" data-num></select></label>
@@ -418,6 +419,7 @@ function renderStatus(st) {
   $("#camStatus").textContent = st.camera;
   $("#outDir").textContent = "Saving to " + st.output_dir;
   $("#secondState").textContent = st.second_screen === "off" ? "" : `Right now: ${st.second_screen}.`;
+  $("#keyingState").textContent = st.keying ? `Keying on the ${st.keying}.` : "";
   setDirty(st.dirty);
 }
 

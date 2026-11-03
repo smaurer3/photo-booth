@@ -184,6 +184,24 @@ from the screen if you use it; otherwise leave it off and use clip black.
 
 Speed (Ryzen 7 3700X, Numba): 720p 11 ms, 1080p 24 ms, 4K 92 ms per frame.
 
+### Keying on the graphics chip
+
+*Booth & print → Screen → Key on the graphics chip* (on by default) runs the
+keyer as OpenGL 3.3 shaders, which Intel laptop graphics (UHD 620 and newer),
+NVIDIA and AMD all do. The whole live preview happens there: shrinking the
+camera picture, keying, the overlay, and scaling to the screen. That leaves the
+CPU to decode the camera and draw the window. Photos are keyed there too.
+
+The shaders do OpenCV's exact maths, so the picture matches the CPU keyer to
+within one level (the tests check this). At start the booth keys a test picture
+both ways and uses the CPU if they disagree or there's no OpenGL 3.3; if the
+graphics driver fails later, it switches to the CPU for the rest of the session.
+The panel and the help screen (H) say which it's using.
+
+Measured on a Ryzen 7 3700X with a GTX 1660, the whole booth at 30 fps (720p
+preview) used 0.25 CPU cores keying on the graphics chip, against 2.7 cores (3.2
+with a clean plate) keying on the CPU.
+
 ## Running the booth (`run.bat`)
 
 Guests only need the remote (or Space / arrow keys). Operator keys:

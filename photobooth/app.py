@@ -21,7 +21,7 @@ import cv2
 import numpy as np
 import pygame
 
-from . import gallery
+from . import gallery, gpu
 from .backgrounds import Backgrounds, Overlay, imread, imwrite
 from .camera import open_camera
 from .config import Config
@@ -98,16 +98,18 @@ class PreviewWorker(threading.Thread):
                 fh, fw = frame.shape[:2]
                 ph = min(app.cfg["display"]["preview_height"], fh)
                 pw = round(fw * ph / fh / 2) * 2
-                small = cv2.resize(frame, (pw, ph), interpolation=cv2.INTER_AREA) if ph != fh else frame
                 with app.bg_lock:
                     bg = app.backgrounds.get(pw, ph)
-                with app.keyer_lock:
-                    comp, alpha = app.preview_keyer.composite(small, bg)
-                comp = app.overlay.apply(comp)
-                app.panel_frames = (seq, small, comp, alpha)       # for the settings panel's preview
-                out = cv2.cvtColor(to_u8(alpha), cv2.COLOR_GRAY2BGR) if app.show_matte else comp
-                out = cv2.resize(out, target, interpolation=cv2.INTER_LINEAR)
-                rgb = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+                rgb = self._on_gpu(frame, seq, (pw, ph), bg, target)
+                if rgb is None:
+                    small = cv2.resize(frame, (pw, ph), interpolation=cv2.INTER_AREA) if ph != fh else frame
+                    with app.keyer_lock:
+                        comp, alpha = app.preview_keyer.composite(small, bg)
+                    comp = app.overlay.apply(comp)
+                    app.panel_frames = (seq, small, comp, alpha)       # for the settings panel's preview
+                    out = cv2.cvtColor(to_u8(alpha), cv2.COLOR_GRAY2BGR) if app.show_matte else comp
+                    out = cv2.resize(out, target, interpolation=cv2.INTER_LINEAR)
+                    rgb = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
                 with self._lock:
                     self.latest = (rgb, seq)
             except Exception:
@@ -116,6 +118,24 @@ class PreviewWorker(threading.Thread):
             now = time.perf_counter()
             self.fps = 0.9 * self.fps + 0.1 / max(now - t_last, 1e-3)
             t_last = now
+
+    def _on_gpu(self, frame, seq, size, bg, target):
+        """The whole preview on the graphics chip (no resizing on the CPU); None if it isn't keying there.
+        The settings panel's pictures are only read back while its preview is being watched."""
+        app = self.app
+        k = app.preview_keyer
+        if not isinstance(k, gpu.GpuKeyer) or not k.on_gpu:
+            return None
+        watched = time.time() - app.panel_watched < 3.0
+        with app.keyer_lock:
+            got = k.preview(frame, size, bg, target, matte=app.show_matte,
+                            overlay=app.overlay.layers(*size), panel=watched)
+        if got is None:
+            return None
+        rgb, panel = got
+        if panel is not None:
+            app.panel_frames = (seq, *panel)
+        return rgb
 
 
 class Booth:
@@ -129,6 +149,7 @@ class Booth:
         self.bg_lock = threading.RLock()
         self.keyer_lock = threading.RLock()     # preview, photo and settings panel share the keyers
         self.panel_frames = None
+        self.panel_watched = 0.0                # when the settings panel last asked for its preview
         self.dirty = False                      # settings changed in the panel but not saved
         self.request_plate = False
         self.request_display = False
@@ -217,7 +238,8 @@ class Booth:
     def _load_keyers(self):
         settings = KeyerSettings.from_dict(self.cfg["keyer"])
         grade = FillGrade.from_dict(self.cfg["fill"])
-        keyers = (Keyer(settings, grade=grade), Keyer(KeyerSettings.from_dict(self.cfg["keyer"]), grade=grade))
+        make = gpu.GpuKeyer if self.cfg["display"]["gpu"] else Keyer
+        keyers = (make(settings, grade=grade), make(KeyerSettings.from_dict(self.cfg["keyer"]), grade=grade))
         keyers[0].warm_up()
         with self.keyer_lock:
             self.preview_keyer, self.photo_keyer = keyers
@@ -627,6 +649,8 @@ class Booth:
         elif section == "panel":
             threading.Timer(0.5, self.panel.restart).start()   # after this request's reply
         elif section == "display":
+            if "gpu" in changed:
+                self._load_keyers()
             if {"fullscreen", "monitor"} & changed.keys():
                 self.request_display = True                     # window changes happen on the main thread (it then updates the second screen)
             elif {"second_screen", "second_hold"} & changed.keys():
@@ -703,6 +727,7 @@ class Booth:
 
     def panel_view(self, view: str):
         """(seq, image) for the panel's live preview: comp, matte or source."""
+        self.panel_watched = time.time()
         pf = self.panel_frames
         if pf is None:
             return None
@@ -711,6 +736,11 @@ class Booth:
             return seq, to_u8(alpha)
         return seq, source if view == "source" else comp
 
+    def keying(self) -> str:
+        if not self.cfg["display"]["gpu"]:
+            return "CPU (graphics chip turned off in settings)"
+        return gpu.describe()
+
     def status(self) -> dict:
         r = self.remote
         return {
@@ -718,6 +748,7 @@ class Booth:
             "remote": {"enabled": r is not None, "connected": bool(r and r.connected), "battery": r.battery if r else None},
             "fps": round(self.worker.fps, 1),
             "plate": self.preview_keyer.has_clean_plate,
+            "keying": self.keying(),
             "state": self.state.name,
             "dirty": self.dirty,
             "background": self.backgrounds.name,
@@ -772,6 +803,7 @@ class Booth:
         running = True
         last_seq = -1
         live_surface = None
+        live_seq = -1
         next_check = 0.0
         while running:
             for event in pygame.event.get():
@@ -848,9 +880,10 @@ class Booth:
                     self._set_state(State.LIVE)
 
             latest = self.worker.get()
-            if latest is not None and latest[0].shape[1::-1] == self.display_rect.size:
-                rgb = latest[0]
-                live_surface = pygame.image.frombuffer(rgb.tobytes(), (rgb.shape[1], rgb.shape[0]), "RGB")
+            if latest is not None and latest[1] != live_seq and latest[0].shape[1::-1] == self.display_rect.size:
+                rgb, live_seq = latest
+                # Made once per camera frame in the screen's own format, not on every pass of this loop.
+                live_surface = pygame.image.frombuffer(rgb, (rgb.shape[1], rgb.shape[0]), "RGB").convert()
             self._draw(live_surface, now, elapsed)
             self._remote_status()
             pygame.display.flip()
@@ -928,6 +961,7 @@ class Booth:
         if self.show_help:
             lines = HELP + ["", getattr(self.camera, "status", ""), f"Preview {self.worker.fps:.0f} fps",
                             "Clean plate: " + ("on" if self.preview_keyer.has_clean_plate else "off"),
+                            f"Keying on the {self.keying()}",
                             f"Saving to {self.out_dir}",
                             f"Settings panel: {self.panel.local_url}"] + ([f"From a phone:   {self.panel.lan_url}  (PIN {self.cfg['panel']['pin']})"] if self.panel.lan_url else [])
             lh = self.font_mono.get_height() + 4

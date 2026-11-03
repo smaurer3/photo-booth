@@ -217,14 +217,21 @@ class Overlay:
             else:
                 self.image = img
 
-    def apply(self, img_u8: np.ndarray) -> np.ndarray:
+    def layers(self, w: int, h: int):
+        """(colour x alpha, 1 - alpha) as float32 at w x h, or None with no overlay."""
         if self.image is None:
-            return img_u8
-        h, w = img_u8.shape[:2]
+            return None
         sized = self._sized.get((w, h))
         if sized is None:
             ov = cv2.resize(self.image, (w, h), interpolation=cv2.INTER_AREA)
-            a = ov[..., 3:4].astype(np.float32) / 255
-            sized = self._sized[(w, h)] = (ov[..., :3].astype(np.float32) * a, 1 - a)
-        rgb_a, inv_a = sized
-        return cv2.convertScaleAbs(img_u8.astype(np.float32) * inv_a + rgb_a)
+            a = ov[..., 3].astype(np.float32) / 255
+            sized = self._sized[(w, h)] = (np.ascontiguousarray(ov[..., :3].astype(np.float32) * a[..., None]),
+                                           np.ascontiguousarray(1 - a))
+        return sized
+
+    def apply(self, img_u8: np.ndarray) -> np.ndarray:
+        layers = self.layers(img_u8.shape[1], img_u8.shape[0])
+        if layers is None:
+            return img_u8
+        rgb_a, inv_a = layers
+        return cv2.convertScaleAbs(img_u8.astype(np.float32) * inv_a[..., None] + rgb_a)

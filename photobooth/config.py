@@ -25,6 +25,7 @@ DEFAULTS = {
         "fullscreen": True,     # borderless, covering the whole monitor (no title bar or taskbar)
         "monitor": 0,           # 0 = main screen, 1 = second screen...
         "preview_height": 720,  # live preview is keyed at this height, then scaled to the screen
+        "gpu": True,            # key on the graphics chip (OpenGL 3.3) when it works, else on the CPU
         "second_screen": -1,    # monitor for a clean photo slideshow (e.g. a TV); -1 = off
         "second_hold": 60,      # a new photo stays on the second screen this long (the newest wins)
     },
