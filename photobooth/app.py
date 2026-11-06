@@ -51,8 +51,26 @@ HELP = [
 ]
 PLATE_DELAY = 5.0      # seconds to get out of shot before the plate is captured
 SLIDE_FADE = 0.8       # crossfade between slideshow photos
+DIP_DOWN = 0.1         # the screen fades to black this fast as soon as the photo is taken...
+DIP_UP = 0.8           # ...stays black while it's keyed, then fades back in over this long
+DIP_WAIT_TEXT = 0.6    # "One moment..." on the black if the photo takes longer than this
 GUEST_KEYS = (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_RIGHT, pygame.K_LEFT, pygame.K_n, pygame.K_b)
 PLATE_FRAMES = 30
+
+
+def dip_level(dip, now):
+    """How black the screen is (0 to 1) around taking a photo, or None once the dip is over.
+
+    dip is (when the photo was taken, when the screen starts coming back or None while
+    the photo is still being keyed).
+    """
+    down, up = dip
+    if up is None or now < up:
+        return min(1.0, max(0.0, (now - down) / DIP_DOWN))
+    t = (now - up) / DIP_UP
+    if t >= 1:
+        return None
+    return 1.0 - t * t * (3 - 2 * t)          # eased, so it settles gently onto the picture
 
 
 class State(enum.Enum):
@@ -170,8 +188,10 @@ class Booth:
         self.toast = ("", 0.0)
         self.result = None
         self.review_surface = None
+        self.dip = None                        # the black dip when a photo is taken (see dip_level)
         self.review_print = ("off", 0.0)       # (print state, time the printer is free again) for the review screen
         self._fonts = {}
+        self._black = None
         self.plate_frames = []
         self.fullscreen = cfg["display"]["fullscreen"] and not windowed
 
@@ -414,6 +434,9 @@ class Booth:
         self.activity.appendleft({"time": time.strftime("%H:%M:%S"), "kind": kind, "text": text, "photo": photo})
 
     def _set_state(self, state):
+        if self.dip is not None and self.dip[1] is None and state != State.PROCESSING:
+            down = self.dip[0]                 # the photo is ready (or failed): fade back in, once it's fully black
+            self.dip = (down, max(time.time(), down + DIP_DOWN))
         self.state = state
         self.state_t = time.time()
         self.last_activity = self.state_t
@@ -519,6 +542,7 @@ class Booth:
         cam = self.camera
         frame = cam.latest()[0]
         self._set_state(State.PROCESSING)
+        self.dip = (time.time(), None)         # straight after the frame is grabbed, so it can't darken the photo
         self.result = None
         threading.Thread(target=self._process, args=(frame, getattr(cam, "mirror", False)), daemon=True).start()
 
@@ -928,14 +952,6 @@ class Booth:
                 self._look_up(look, now)
             self._text(str(n), self.font_huge, (sw // 2, sh // 2), alpha=int(140 + 115 * frac))
             self._text("Get ready!" if n > 1 else "Smile!", self.font_big, (sw // 2, r.bottom - sh // 8))
-        elif self.state == State.PROCESSING:
-            if elapsed < 0.35:
-                flash = pygame.Surface((sw, sh))
-                flash.fill((255, 255, 255))
-                flash.set_alpha(int(255 * (1 - elapsed / 0.35)))
-                scr.blit(flash, (0, 0))
-            else:
-                self._text("One moment...", self.font_big, (sw // 2, sh // 2))
         elif self.state == State.REVIEW:
             self._text("Saved!", self.font_big, (sw // 2, r.top + sh // 9))
             self._print_panel(now, elapsed)
@@ -959,6 +975,21 @@ class Booth:
         if status:
             color = (140, 255, 140) if self.remote and self.remote.connected else (220, 220, 220)
             self._text("   ".join(status), self.font_small, (r.right - pad, r.top + pad), color=color, anchor="topright")
+
+        if self.dip is not None:
+            level = dip_level(self.dip, now)
+            if level is None:
+                self.dip = None
+            else:
+                if level >= 1:
+                    scr.fill((0, 0, 0))
+                elif level > 0:
+                    if self._black is None or self._black.get_size() != (sw, sh):
+                        self._black = pygame.Surface((sw, sh))     # (filled black)
+                    self._black.set_alpha(round(255 * level))
+                    scr.blit(self._black, (0, 0))
+                if self.state == State.PROCESSING and now - self.dip[0] > DIP_WAIT_TEXT:
+                    self._text("One moment...", self.font_big, (sw // 2, sh // 2))
 
         text, t = self.toast
         if text and now - t < 2.0:
