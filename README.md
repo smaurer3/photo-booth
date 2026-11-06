@@ -230,6 +230,13 @@ Photos go to `~/Pictures/Photobooth/<date>/IMG_*.jpg`, with the un-keyed camera
 frame in `originals/` (for re-keying later) when `save_original` is on.
 `booth.log` and `print_log.txt` are kept in the output folder.
 
+With *Screen works like a mirror* on (**Camera** tab, the default), the screen
+is a true mirror: the camera picture *and* the background are flipped, so
+people move naturally and stand where they mean to against the background. The
+photo is turned back the right way round (the review screen shows it as saved),
+so writing on clothes and backgrounds reads correctly. The overlay is never
+flipped.
+
 An `overlay` PNG with transparency (event logo, frame) is drawn over the
 preview and every photo.
 

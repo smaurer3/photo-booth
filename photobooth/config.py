@@ -19,7 +19,7 @@ DEFAULTS = {
         "height": 1080,
         "fps": 30,
         "fourcc": "",           # e.g. "MJPG", "YUY2", "NV12"; "" = driver default
-        "mirror": True,         # mirror like a selfie (applies to preview and photo so they match)
+        "mirror": True,         # the screen works like a mirror; photos are still saved the right way round
     },
     "display": {
         "fullscreen": True,     # borderless, covering the whole monitor (no title bar or taskbar)

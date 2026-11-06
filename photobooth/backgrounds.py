@@ -175,15 +175,17 @@ class Backgrounds:
         if self.files:
             self.index = (self.index + n) % len(self.files)
 
-    def get(self, w, h) -> np.ndarray:
-        """Current background as float32 BGR 0..1 at w x h (cached)."""
+    def get(self, w, h, mirror=False) -> np.ndarray:
+        """Current background as float32 BGR 0..1 at w x h (cached), flipped left-right if mirror."""
         file = self.files[self.index].name if self.files else None
-        key = (file, w, h)
+        key = (file, w, h, bool(mirror))
         img = self._sized.get(key)
         if img is not None:
             return img
         raw = self._load(file)
         img = _placeholder(w, h) if raw is None else np.ascontiguousarray(cover(raw, w, h), dtype=np.float32) * np.float32(1 / 255)
+        if mirror:
+            img = cv2.flip(img, 1)
         if len(self._sized) >= 4:
             self._sized.pop(next(iter(self._sized)))
         self._sized[key] = img

@@ -62,3 +62,14 @@ def test_no_path_tricks(lib):
 def test_thumbnail(lib):
     img = cv2.imdecode(np.frombuffer(lib.thumbnail("01_Beach.jpg"), np.uint8), cv2.IMREAD_COLOR)
     assert img.shape[1] == 320
+
+
+def test_mirrored_background_is_flipped_left_to_right(tmp_path):
+    b = Backgrounds(tmp_path / "bgs")
+    img = np.zeros((300, 400, 3), np.uint8)
+    img[:, :100] = (0, 0, 255)                     # red down the left side
+    b.add("Left.png", cv2.imencode(".png", img)[1].tobytes())
+    plain, mirrored = b.get(400, 300), b.get(400, 300, mirror=True)
+    assert plain[150, 20, 2] > 0.9 and mirrored[150, 380, 2] > 0.9
+    assert np.array_equal(mirrored, cv2.flip(plain, 1))
+    assert b.get(400, 300, mirror=True) is mirrored and b.get(400, 300) is plain   # both cached

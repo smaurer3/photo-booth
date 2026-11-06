@@ -182,3 +182,14 @@ def test_grade_controls(scene):
     k = Keyer(KeyerSettings(screen_color=scene["screen_color"], light_wrap=0), grade=FillGrade(saturation=0.0))
     grey = k.composite(scene["frame"], np.full(scene["bg"].shape, 0.5, np.float32))[0][inside].astype(int)
     assert np.abs(grey[:, 0] - grey[:, 2]).max() <= 1
+
+
+@pytest.mark.parametrize("kw", [{}, {"matte_blur": 6, "choke": 5, "softness": 1.5, "light_wrap": 0.12}])
+def test_mirrored_keying_turned_round_is_the_unmirrored_photo(scene, kw):
+    # The booth keys the selfie-mirrored camera picture over a mirrored background, then flips
+    # the photo back: that must be the photo keyed the right way round in the first place.
+    k = Keyer(KeyerSettings(screen_color=scene["screen_color"], **kw))
+    out, alpha = k.composite(scene["frame"], scene["bg"])
+    m_out, m_alpha = k.composite(cv2.flip(scene["frame"], 1), cv2.flip(scene["bg"], 1))
+    assert np.abs(cv2.flip(m_out, 1).astype(np.int16) - out).max() <= 1
+    assert np.abs(cv2.flip(m_alpha, 1) - alpha).max() < 1e-4

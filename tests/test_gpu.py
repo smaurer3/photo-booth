@@ -115,3 +115,12 @@ def test_live_preview_skips_the_panel_images_unless_asked(scene):
     frame, bg, sc = scene
     rgb, panel = gpu.GpuKeyer(KeyerSettings(screen_color=sc)).preview(frame, (W, H), bg, (W, H))
     assert panel is None and rgb.shape == (H, W, 3)
+
+
+def test_mirrored_keying_turned_round_is_the_unmirrored_photo(scene):
+    frame, bg, sc = scene
+    k = gpu.GpuKeyer(KeyerSettings(screen_color=sc, choke=3, softness=1.5))
+    out, alpha = k.composite(frame, bg)
+    m_out, m_alpha = k.composite(cv2.flip(frame, 1), np.ascontiguousarray(cv2.flip(bg, 1)))
+    assert np.abs(cv2.flip(m_out, 1).astype(np.int16) - out).max() <= 1
+    assert np.abs(cv2.flip(m_alpha, 1) - alpha).max() < 1e-4

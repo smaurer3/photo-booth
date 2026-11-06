@@ -88,7 +88,8 @@ class PreviewWorker(threading.Thread):
         last_seq = -1
         t_last = time.perf_counter()
         while not self._halt.is_set():
-            frame, seq = app.camera.latest()
+            cam = app.camera
+            frame, seq = cam.latest()
             target = app.display_rect.size
             if self.paused or frame is None or seq == last_seq or target[0] < 2:
                 time.sleep(0.003)
@@ -99,7 +100,9 @@ class PreviewWorker(threading.Thread):
                 ph = min(app.cfg["display"]["preview_height"], fh)
                 pw = round(fw * ph / fh / 2) * 2
                 with app.bg_lock:
-                    bg = app.backgrounds.get(pw, ph)
+                    # A mirrored camera picture goes over a mirrored background, so the screen shows
+                    # the photo exactly as a mirror would (the photo itself is turned back round).
+                    bg = app.backgrounds.get(pw, ph, getattr(cam, "mirror", False))
                 rgb = self._on_gpu(frame, seq, (pw, ph), bg, target)
                 if rgb is None:
                     small = cv2.resize(frame, (pw, ph), interpolation=cv2.INTER_AREA) if ph != fh else frame
@@ -513,18 +516,23 @@ class Booth:
             self.toast = (self.backgrounds.name, time.time())
 
     def _capture(self):
-        frame = self.camera.latest()[0]
+        cam = self.camera
+        frame = cam.latest()[0]
         self._set_state(State.PROCESSING)
         self.result = None
-        threading.Thread(target=self._process, args=(frame,), daemon=True).start()
+        threading.Thread(target=self._process, args=(frame, getattr(cam, "mirror", False)), daemon=True).start()
 
-    def _process(self, frame):
+    def _process(self, frame, mirror=False):
         try:
             h, w = frame.shape[:2]
             with self.bg_lock:
-                bg = self.backgrounds.get(w, h)
+                bg = self.backgrounds.get(w, h, mirror)
             with self.keyer_lock:
                 out, alpha = self.photo_keyer.composite(frame, bg)
+            if mirror:
+                # The screen is a mirror (camera picture and background both flipped); the photo is
+                # turned the right way round, so writing on clothes and backgrounds reads correctly.
+                frame, out, alpha = cv2.flip(frame, 1), cv2.flip(out, 1), cv2.flip(alpha, 1)
             out = self.overlay.apply(out)
             now = dt.datetime.now()
             folder = self.out_dir / now.strftime("%Y-%m-%d")
