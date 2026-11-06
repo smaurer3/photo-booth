@@ -36,21 +36,29 @@
   }
 
   /* top sheet */
-  .rule {
+  .welcome {
     margin-top: 4mm; padding: 3mm 10mm 2mm; border-radius: 8mm; text-align: center;
     background: var(--yellow); border: 1.2mm solid var(--ink); box-shadow: 1.8mm 1.8mm 0 var(--ink);
     font-weight: 800; line-height: 1;
   }
-  .rule b { display: block; font-size: 15mm; letter-spacing: 0.6mm; }
-  .rule span { display: block; font-size: 11.5mm; margin-top: 1.5mm; }
-  .camera { width: 178mm; margin: auto 0; }
+  .welcome b { display: block; font-size: 16mm; letter-spacing: 0.6mm; }
+  .welcome span { display: block; font-size: 9mm; margin-top: 1.5mm; }
+  .shot { position: relative; margin: auto 0; }
+  .camera { width: 178mm; display: block; }
+  .badge {
+    position: absolute; right: -4mm; bottom: -3mm; width: 58mm; height: 58mm; border-radius: 50%;
+    display: grid; place-items: center; text-align: center; box-sizing: border-box; padding-top: 2.5mm;
+    background: var(--pink); color: #fff; border: 1.2mm solid var(--ink); box-shadow: 1.5mm 1.5mm 0 var(--ink);
+    font-family: "Luckiest Guy", sans-serif; font-size: 8.8mm; line-height: 1.1;
+    transform: rotate(-12deg);
+  }
   .top .word { margin-bottom: 4mm; }
 
   /* bottom sheet */
   .bottom .word { margin-top: 2mm; }
   .how { margin: auto 0; display: flex; gap: 7mm; align-items: center; width: 100%; }
   .remote { width: 50mm; flex: none; }
-  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10mm; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7mm; }
   .steps li { display: flex; align-items: center; gap: 5mm; font-weight: 800; font-size: 11mm; line-height: 1.05; }
   .num {
     flex: none; width: 20mm; height: 20mm; border-radius: 50%; display: grid; place-items: center;
@@ -82,15 +90,15 @@
       <path d="M176 70 q5 -6 10 0 t10 0" stroke="var(--teal)"/>
       <circle cx="18" cy="150" r="3" fill="var(--yellow)" stroke="none"/>
       <path d="M190 140 l5 8 l-10 0 z" fill="var(--pink)" stroke="none"/>
-      <circle cx="194" cy="196" r="4" fill="var(--teal)" stroke="none"/>
       <path d="M14 216 q5 -6 10 0 t10 0" stroke="var(--teal)"/>
       <rect x="20" y="110" width="6" height="6" transform="rotate(25 23 113)" fill="var(--pink)"/>
       <rect x="184" y="104" width="6" height="6" transform="rotate(-20 187 107)" fill="var(--yellow)"/>
     </g>
   </svg>
 
-  <div class="rule"><b>ONLY COME IN</b><span>when an adult is inside</span></div>
+  <div class="welcome"><b>COME ON IN!</b><span>our photo helper will set you up</span></div>
 
+  <div class="shot">
   <svg class="camera" viewBox="0 0 240 190" aria-label="camera">
     <!-- flash burst -->
     <polygon fill="var(--yellow)" points="120,4 133,52 172,18 158,64 214,52 172,88 228,104 172,116 214,152 160,140 172,186 134,150 120,188 106,150 68,186 80,140 26,152 68,116 12,104 68,88 26,52 82,64 68,18 107,52"/>
@@ -113,6 +121,8 @@
       <path d="M22 168 l2.5 7 l7 2.5 l-7 2.5 l-2.5 7 l-2.5 -7 l-7 -2.5 l7 -2.5 z"/>
     </g>
   </svg>
+  <div class="badge">DRESS-UPS<br>INSIDE!</div>
+  </div>
 
   <div class="word" data-fit>PHOTO</div>
 </section>
@@ -144,11 +154,13 @@
       <text x="29" y="109" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" fill="#fff">M5</text>
     </svg>
     <ol class="steps">
-      <li><span class="num" style="background: var(--teal)">1</span>
+      <li><span class="num" style="background: var(--orange)">1</span>
+        <span>Dress up!<small>grab something fun to wear</small></span></li>
+      <li><span class="num" style="background: var(--teal)">2</span>
         <span>Pick a background<small>press the little side button</small></span></li>
-      <li><span class="num" style="background: var(--pink)">2</span>
+      <li><span class="num" style="background: var(--pink)">3</span>
         <span>Take your photo<small>press the big front button</small></span></li>
-      <li><span class="num" style="background: var(--yellow); color: var(--ink)">3</span>
+      <li><span class="num" style="background: var(--yellow); color: var(--ink)">4</span>
         <span>Look at the camera<small>and smile for the countdown!</small></span></li>
     </ol>
   </div>
