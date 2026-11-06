@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Photo Booth door sign</title>
+<!-- Two portrait A4 sheets, stuck one above the other on the door: PHOTO on the top
+     sheet, BOOTH on the bottom one. White paper, so a home printer's unprintable edge
+     doesn't matter. Print door-sign.pdf at "Actual size". To remake the PDF after editing:
+     chrome --headless=new --no-pdf-header-footer --virtual-time-budget=15000
+            --print-to-pdf=door-sign.pdf door-sign.html -->
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Luckiest+Guy&display=block" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --ink: #1f1b4d;
+    --pink: #ff3d7f;
+    --yellow: #ffc53d;
+    --teal: #12b5a5;
+    --orange: #ff7a1a;
+  }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .sheet {
+    width: 210mm; height: 297mm; box-sizing: border-box; padding: 13mm;
+    position: relative; overflow: hidden; break-after: page;
+    display: flex; flex-direction: column; align-items: center;
+    font-family: "Baloo 2", "Segoe UI", sans-serif; color: var(--ink);
+  }
+  .sheet:last-child { break-after: auto; }
+  .confetti { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  .sheet > :not(.confetti) { position: relative; z-index: 1; }
+
+  .word {
+    font-family: "Luckiest Guy", "Arial Black", sans-serif; line-height: 1;
+    white-space: nowrap; letter-spacing: 1.5mm; padding-right: 3mm;
+    text-shadow: 3mm 3mm 0 var(--pink);
+  }
+
+  /* top sheet */
+  .pill {
+    margin-top: 6mm; padding: 2mm 10mm 0.5mm; border-radius: 99mm;
+    background: var(--yellow); font-weight: 800; font-size: 15mm; letter-spacing: 0.6mm;
+    border: 1.2mm solid var(--ink); box-shadow: 1.8mm 1.8mm 0 var(--ink);
+  }
+  .camera { width: 178mm; margin: auto 0; }
+  .top .word { margin-bottom: 4mm; }
+
+  /* bottom sheet */
+  .bottom .word { margin-top: 2mm; }
+  .how { margin: auto 0; display: flex; gap: 7mm; align-items: center; width: 100%; }
+  .remote { width: 50mm; flex: none; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10mm; }
+  .steps li { display: flex; align-items: center; gap: 5mm; font-weight: 800; font-size: 11mm; line-height: 1.05; }
+  .num {
+    flex: none; width: 20mm; height: 20mm; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; font-size: 13mm; padding-top: 1.5mm; box-sizing: border-box;
+    border: 1mm solid var(--ink);
+  }
+  .steps small { display: block; font-weight: 700; font-size: 7.5mm; opacity: 0.75; margin-top: 1mm; }
+  .smile {
+    margin-bottom: 4mm; font-family: "Luckiest Guy", sans-serif; font-size: 30mm;
+    letter-spacing: 1.5mm; color: var(--teal); text-shadow: 2mm 2mm 0 var(--ink);
+  }
+
+  @media screen {
+    body { background: #777; }
+    .sheet { margin: 8mm auto; background: #fff; box-shadow: 0 2mm 6mm #0006; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sheet 1 of 2: goes on top -->
+<section class="sheet top">
+  <svg class="confetti" viewBox="0 0 210 297" aria-hidden="true">
+    <g stroke-width="2" fill="none" stroke-linecap="round">
+      <circle cx="22" cy="24" r="4" fill="var(--teal)" stroke="none"/>
+      <circle cx="190" cy="30" r="3" fill="var(--pink)" stroke="none"/>
+      <path d="M180 18 l6 9 l-11 0 z" fill="var(--yellow)" stroke="none"/>
+      <path d="M16 60 q5 -6 10 0 t10 0" stroke="var(--pink)"/>
+      <path d="M176 70 q5 -6 10 0 t10 0" stroke="var(--teal)"/>
+      <circle cx="18" cy="150" r="3" fill="var(--yellow)" stroke="none"/>
+      <path d="M190 140 l5 8 l-10 0 z" fill="var(--pink)" stroke="none"/>
+      <circle cx="194" cy="196" r="4" fill="var(--teal)" stroke="none"/>
+      <path d="M14 216 q5 -6 10 0 t10 0" stroke="var(--teal)"/>
+      <rect x="20" y="110" width="6" height="6" transform="rotate(25 23 113)" fill="var(--pink)"/>
+      <rect x="184" y="104" width="6" height="6" transform="rotate(-20 187 107)" fill="var(--yellow)"/>
+    </g>
+  </svg>
+
+  <div class="pill">COME ON IN!</div>
+
+  <svg class="camera" viewBox="0 0 240 190" aria-label="camera">
+    <!-- flash burst -->
+    <polygon fill="var(--yellow)" points="120,4 133,52 172,18 158,64 214,52 172,88 228,104 172,116 214,152 160,140 172,186 134,150 120,188 106,150 68,186 80,140 26,152 68,116 12,104 68,88 26,52 82,64 68,18 107,52"/>
+    <!-- body -->
+    <rect x="64" y="46" width="52" height="24" rx="7" fill="var(--ink)"/>
+    <rect x="148" y="52" width="22" height="12" rx="4" fill="var(--pink)" stroke="var(--ink)" stroke-width="3"/>
+    <rect x="28" y="60" width="184" height="108" rx="20" fill="var(--ink)"/>
+    <rect x="28" y="84" width="184" height="12" fill="var(--pink)"/>
+    <rect x="166" y="70" width="32" height="18" rx="5" fill="#fff"/>
+    <rect x="171" y="74" width="22" height="10" rx="3" fill="var(--yellow)"/>
+    <!-- lens -->
+    <circle cx="112" cy="114" r="46" fill="#fff"/>
+    <circle cx="112" cy="114" r="38" fill="var(--teal)"/>
+    <circle cx="112" cy="114" r="25" fill="var(--ink)"/>
+    <circle cx="101" cy="102" r="8" fill="#fff"/>
+    <circle cx="121" cy="124" r="3.5" fill="#fff" opacity="0.8"/>
+    <!-- sparkles -->
+    <g fill="#fff" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round">
+      <path d="M214 30 l3 9 l9 3 l-9 3 l-3 9 l-3 -9 l-9 -3 l9 -3 z"/>
+      <path d="M22 168 l2.5 7 l7 2.5 l-7 2.5 l-2.5 7 l-2.5 -7 l-7 -2.5 l7 -2.5 z"/>
+    </g>
+  </svg>
+
+  <div class="word" data-fit>PHOTO</div>
+</section>
+
+<!-- Sheet 2 of 2: goes underneath -->
+<section class="sheet bottom">
+  <svg class="confetti" viewBox="0 0 210 297" aria-hidden="true">
+    <g stroke-width="2" fill="none" stroke-linecap="round">
+      <circle cx="176" cy="212" r="3" fill="var(--pink)" stroke="none"/>
+      <path d="M14 232 q5 -6 10 0 t10 0" stroke="var(--pink)"/>
+      <circle cx="22" cy="262" r="4" fill="var(--yellow)" stroke="none"/>
+      <path d="M184 250 l6 9 l-11 0 z" fill="var(--teal)" stroke="none"/>
+      <path d="M172 274 q5 -6 10 0 t10 0" stroke="var(--yellow)"/>
+      <circle cx="190" cy="230" r="3" fill="var(--teal)" stroke="none"/>
+      <rect x="30" y="276" width="6" height="6" transform="rotate(25 33 279)" fill="var(--pink)"/>
+    </g>
+  </svg>
+
+  <div class="word" data-fit>BOOTH</div>
+
+  <div class="how">
+    <svg class="remote" viewBox="0 0 60 150" aria-label="the remote">
+      <!-- the M5StickC remote: big button on the front, small one on the side -->
+      <rect x="51" y="44" width="7" height="18" rx="2.5" fill="var(--teal)" stroke="var(--ink)" stroke-width="2.5"/>
+      <rect x="6" y="4" width="46" height="142" rx="10" fill="var(--orange)" stroke="var(--ink)" stroke-width="3"/>
+      <rect x="13" y="14" width="32" height="56" rx="4" fill="var(--ink)"/>
+      <rect x="17" y="19" width="24" height="46" rx="2" fill="#2d2a6e"/>
+      <circle cx="29" cy="104" r="15" fill="var(--pink)" stroke="var(--ink)" stroke-width="3"/>
+      <text x="29" y="109" text-anchor="middle" font-family="Baloo 2, sans-serif" font-weight="800" font-size="13" fill="#fff">M5</text>
+    </svg>
+    <ol class="steps">
+      <li><span class="num" style="background: var(--teal)">1</span>
+        <span>Pick a background<small>press the little side button</small></span></li>
+      <li><span class="num" style="background: var(--pink)">2</span>
+        <span>Take your photo<small>press the big front button</small></span></li>
+      <li><span class="num" style="background: var(--yellow); color: var(--ink)">3</span>
+        <span>Look at the camera<small>and smile for the countdown!</small></span></li>
+    </ol>
+  </div>
+
+  <div class="smile">SMILE!</div>
+</section>
+
+<script>
+  // Make PHOTO and BOOTH the same size, as big as fits across the sheet.
+  document.fonts.ready.then(() => {
+    const words = [...document.querySelectorAll("[data-fit]")];
+    const room = words[0].parentElement.clientWidth - 2 * parseFloat(getComputedStyle(words[0].parentElement).paddingLeft);
+    let size = Infinity;
+    for (const w of words) {
+      w.style.fontSize = "100px";
+      size = Math.min(size, 100 * room / w.scrollWidth);
+    }
+    for (const w of words) w.style.fontSize = size + "px";
+    document.body.dataset.ready = "1";
+  });
+</script>
+</body>
+</html>
